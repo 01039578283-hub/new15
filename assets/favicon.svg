@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="영수코칭">
+  <rect width="64" height="64" rx="15" fill="#082d49"/>
+  <path d="M38 0h11c8.3 0 15 6.7 15 15v34c0 8.3-6.7 15-15 15H38z" fill="#ef7518"/>
+  <text x="31" y="39" fill="#fff" font-family="Arial,sans-serif" font-size="22" font-weight="800" text-anchor="middle">YS</text>
+</svg>

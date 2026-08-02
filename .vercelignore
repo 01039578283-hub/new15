@@ -1,0 +1,9 @@
+assets/generated/
+assets/title.png
+assets/favicon.png
+reports/
+tools/
+node_modules/
+test-results/
+playwright-report/
+__pycache__/

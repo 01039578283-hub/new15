@@ -1,0 +1,10 @@
+.vercel/
+.env*
+reports/
+node_modules/
+test-results/
+playwright-report/
+__pycache__/
+*.pyc
+tmp/
+*.log
