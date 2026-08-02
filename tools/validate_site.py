@@ -7,7 +7,20 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
-HTML_FILES = sorted(ROOT.rglob("*.html"))
+IGNORED_DIRS = {
+    ".git",
+    ".vercel",
+    "node_modules",
+    "reports",
+    "test-results",
+    "playwright-report",
+    "tmp",
+}
+HTML_FILES = sorted(
+    path
+    for path in ROOT.rglob("*.html")
+    if not any(part in IGNORED_DIRS for part in path.relative_to(ROOT).parts)
+)
 errors: list[str] = []
 
 for path in HTML_FILES:
