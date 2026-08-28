@@ -8,11 +8,22 @@ import re
 import statistics
 import sys
 import xml.etree.ElementTree as ET
+from collections import Counter, defaultdict
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import quote, unquote, urlparse
 
-from generate_subject_pages import CATEGORIES, DOMAIN, ROOT, SITE_NAME, absolute_url
+from generate_subject_pages import (
+    CATEGORIES,
+    DOMAIN,
+    IGNORED_PUBLIC_DIRS,
+    REPRESENTATIVE_CATEGORY_OFFSET,
+    REPRESENTATIVE_MANIFEST,
+    REPRESENTATIVE_POOL_SIZE,
+    ROOT,
+    SITE_NAME,
+    absolute_url,
+)
 
 
 REQUIRED_SCHEMA_TYPES = {
@@ -33,6 +44,16 @@ SCRIPT_RE = re.compile(
 TAG_RE = re.compile(r"<[^>]+>")
 ATTR_RE = re.compile(r'\b(?:href|src)=["\']([^"\']+)["\']', re.IGNORECASE)
 IMG_RE = re.compile(r'<img\b[^>]*\bsrc=["\']([^"\']+)["\'][^>]*>', re.IGNORECASE)
+REPRESENTATIVE_IMG_RE = re.compile(
+    r'<img\b(?=[^>]*\bclass=["\'][^"\']*\bacademy-representative-image\b[^"\']*["\'])[^>]*>',
+    re.IGNORECASE,
+)
+REPRESENTATIVE_BEFORE_MAIN_RE = re.compile(
+    r'<img\b(?=[^>]*\bclass=["\'][^"\']*\bacademy-representative-image\b[^"\']*["\'])[^>]*>'
+    r'\s*<figure\b(?=[^>]*\bclass=["\'][^"\']*\bacademy-main-media\b[^"\']*["\'])[^>]*>',
+    re.IGNORECASE,
+)
+REPRESENTATIVE_ASSET_DIR = (ROOT / "assets" / "representative").resolve()
 
 
 def plain_text(value: str) -> str:
@@ -43,6 +64,17 @@ def plain_text(value: str) -> str:
 
 def normalize_url(value: str) -> str:
     return html.unescape(value).strip()
+
+
+def tag_attribute(tag: str, name: str) -> str:
+    match = re.search(
+        rf'\b{re.escape(name)}\s*=\s*(?:"([^"]*)"|\'([^\']*)\')',
+        tag,
+        flags=re.IGNORECASE,
+    )
+    if not match:
+        return ""
+    return html.unescape(next(value for value in match.groups() if value is not None)).strip()
 
 
 def schema_types(value: object) -> set[str]:
@@ -221,7 +253,9 @@ def similarity_worker(job: tuple[str, list[tuple[str, str, str, str]]]) -> tuple
     return category, result
 
 
-def audit_category(config: dict[str, str]) -> tuple[dict, list[tuple[str, str, str, str]], set[str]]:
+def audit_category(
+    config: dict[str, str],
+) -> tuple[dict, list[tuple[str, str, str, str]], set[str], dict[str, str]]:
     category_slug = config["slug"]
     category_root = ROOT / "과목별학원" / category_slug
     errors: list[str] = []
@@ -235,6 +269,7 @@ def audit_category(config: dict[str, str]) -> tuple[dict, list[tuple[str, str, s
     expected_urls: set[str] = {absolute_url("과목별학원", category_slug)}
     checked_links = 0
     checked_images = 0
+    representative_assignments: dict[str, str] = {}
 
     for page in pages:
         slug = page.parent.name
@@ -310,6 +345,39 @@ def audit_category(config: dict[str, str]) -> tuple[dict, list[tuple[str, str, s
         if not images:
             errors.append(f"image-missing:{category_slug}/{slug}")
         checked_images += len(images)
+
+        representative_tags = REPRESENTATIVE_IMG_RE.findall(source)
+        if len(representative_tags) != 1:
+            errors.append(
+                f"representative-count:{category_slug}/{slug}:expected-1:actual-{len(representative_tags)}"
+            )
+        else:
+            representative_tag = representative_tags[0]
+            representative_src = tag_attribute(representative_tag, "src")
+            representative_alt = tag_attribute(representative_tag, "alt")
+            representative_style = tag_attribute(representative_tag, "style")
+            if representative_alt != f"{title} 대표":
+                errors.append(f"representative-alt:{category_slug}/{slug}:{representative_alt}")
+            if representative_style != "display:none;":
+                errors.append(f"representative-style:{category_slug}/{slug}:{representative_style}")
+            if not REPRESENTATIVE_BEFORE_MAIN_RE.search(source):
+                errors.append(f"representative-position:{category_slug}/{slug}")
+
+            representative_target = local_target(page, representative_src)
+            if representative_target is None:
+                errors.append(f"representative-src-invalid:{category_slug}/{slug}:{representative_src}")
+            else:
+                try:
+                    representative_target.relative_to(REPRESENTATIVE_ASSET_DIR)
+                except ValueError:
+                    errors.append(f"representative-src-outside:{category_slug}/{slug}:{representative_src}")
+                else:
+                    if representative_target.suffix.lower() != ".gif":
+                        errors.append(f"representative-format:{category_slug}/{slug}:{representative_src}")
+                    if not representative_target.is_file() or representative_target.stat().st_size == 0:
+                        errors.append(f"representative-file-missing:{category_slug}/{slug}:{representative_src}")
+                    representative_assignments[slug] = representative_target.name
+
         for value in ATTR_RE.findall(source):
             target = local_target(page, value)
             if target is None:
@@ -323,6 +391,13 @@ def audit_category(config: dict[str, str]) -> tuple[dict, list[tuple[str, str, s
             errors.append(f"article-missing:{category_slug}/{slug}")
         locality = title[: -len(config["label"])].strip() if title.endswith(config["label"]) else slug
         records.append((slug, locality, title, text))
+
+    representative_counts = Counter(representative_assignments.values())
+    if len(representative_assignments) == len(pages) and len(representative_counts) != len(pages):
+        errors.append(
+            f"representative-category-duplicates:{category_slug}:"
+            f"unique-{len(representative_counts)}:pages-{len(pages)}"
+        )
 
     report = {
         "category": config["label"],
@@ -339,8 +414,12 @@ def audit_category(config: dict[str, str]) -> tuple[dict, list[tuple[str, str, s
         },
         "checked_local_references": checked_links,
         "checked_images": checked_images,
+        "representative_images": {
+            "assigned": len(representative_assignments),
+            "unique": len(representative_counts),
+        },
     }
-    return report, records, expected_urls
+    return report, records, expected_urls, representative_assignments
 
 
 def sitemap_audit(expected_urls: set[str]) -> tuple[dict, list[str]]:
@@ -357,18 +436,38 @@ def sitemap_audit(expected_urls: set[str]) -> tuple[dict, list[str]]:
     urls = [normalize_url(node.text or "") for node in root.findall("{*}url/{*}loc")]
     duplicates = sorted({url for url in urls if urls.count(url) > 1})
     missing = sorted(expected_urls - set(urls))
+    public_urls: set[str] = set()
+    for page in ROOT.rglob("index.html"):
+        relative = page.relative_to(ROOT)
+        if any(part in IGNORED_PUBLIC_DIRS for part in relative.parts):
+            continue
+        route_parts = relative.parts[:-1]
+        public_urls.add(
+            DOMAIN + ("/" if not route_parts else quote("/" + "/".join(route_parts) + "/", safe="/"))
+        )
+    missing_public = sorted(public_urls - set(urls))
+    extra = sorted(set(urls) - public_urls)
     if duplicates:
         errors.append(f"sitemap-duplicate-urls:{len(duplicates)}")
     if missing:
         errors.append(f"sitemap-missing-expected:{len(missing)}")
+    if missing_public:
+        errors.append(f"sitemap-missing-public:{len(missing_public)}")
+    if extra:
+        errors.append(f"sitemap-extra-nonpublic:{len(extra)}")
     report = {
         "exists": True,
         "urls": len(urls),
         "unique_urls": len(set(urls)),
         "duplicate_urls": len(duplicates),
         "missing_expected": len(missing),
+        "public_html_urls": len(public_urls),
+        "missing_public": len(missing_public),
+        "extra_nonpublic": len(extra),
         "duplicate_sample": duplicates[:10],
         "missing_sample": missing[:10],
+        "missing_public_sample": missing_public[:10],
+        "extra_sample": extra[:10],
     }
     return report, errors
 
@@ -392,12 +491,83 @@ def main() -> int:
     category_reports: list[dict] = []
     similarity_jobs: list[tuple[str, list[tuple[str, str, str, str]]]] = []
     expected_urls = {absolute_url("과목별학원")}
+    representative_usage: Counter[str] = Counter()
+    representative_by_locality: defaultdict[str, set[str]] = defaultdict(set)
+    representative_assignments_by_category: dict[str, dict[str, str]] = {}
+    representative_errors: list[str] = []
 
     for config in selected:
-        report, records, urls = audit_category(config)
+        report, records, urls, assignments = audit_category(config)
         category_reports.append(report)
         similarity_jobs.append((config["slug"], records))
         expected_urls.update(urls)
+        representative_usage.update(assignments.values())
+        representative_assignments_by_category[config["slug"]] = assignments
+        for locality, filename in assignments.items():
+            representative_by_locality[locality].add(filename)
+
+    if not args.category:
+        manifest_names: list[str] = []
+        if not REPRESENTATIVE_MANIFEST.is_file():
+            representative_errors.append("representative-manifest-missing")
+        else:
+            try:
+                manifest = json.loads(REPRESENTATIVE_MANIFEST.read_text(encoding="utf-8"))
+                entries = manifest.get("images", []) if isinstance(manifest, dict) else []
+                manifest_names = [str(entry.get("asset_name", "")) for entry in entries if isinstance(entry, dict)]
+            except (OSError, json.JSONDecodeError) as exc:
+                representative_errors.append(f"representative-manifest-invalid:{exc}")
+            if len(manifest_names) != REPRESENTATIVE_POOL_SIZE or len(set(manifest_names)) != len(manifest_names):
+                representative_errors.append(
+                    f"representative-manifest-count:expected-{REPRESENTATIVE_POOL_SIZE}:actual-{len(manifest_names)}"
+                )
+        asset_files = sorted(
+            path.name for path in REPRESENTATIVE_ASSET_DIR.glob("rep-*.gif") if path.is_file()
+        ) if REPRESENTATIVE_ASSET_DIR.is_dir() else []
+        if len(asset_files) != REPRESENTATIVE_POOL_SIZE:
+            representative_errors.append(
+                f"representative-asset-count:expected-{REPRESENTATIVE_POOL_SIZE}:actual-{len(asset_files)}"
+            )
+        if manifest_names and set(asset_files) != set(manifest_names):
+            representative_errors.append("representative-manifest-asset-set-mismatch")
+        if set(asset_files) != set(representative_usage):
+            representative_errors.append(
+                "representative-asset-reference-set-mismatch:"
+                f"assets-{len(asset_files)}:referenced-{len(representative_usage)}"
+            )
+        bad_usage = sorted(
+            (name, count) for name, count in representative_usage.items() if count != len(CATEGORIES)
+        )
+        if bad_usage:
+            representative_errors.append(
+                f"representative-unbalanced-usage:{bad_usage[:10]}"
+            )
+        bad_localities = sorted(
+            locality for locality, names in representative_by_locality.items()
+            if len(names) != len(CATEGORIES)
+        )
+        if bad_localities:
+            representative_errors.append(
+                f"representative-locality-collision:{bad_localities[:10]}"
+            )
+        if manifest_names and len(representative_by_locality) == 371:
+            locality_indexes = {
+                locality: index for index, locality in enumerate(sorted(representative_by_locality))
+            }
+            mapping_mismatches: list[str] = []
+            for category_index, config in enumerate(CATEGORIES):
+                assignments = representative_assignments_by_category.get(config["slug"], {})
+                for locality, locality_index in locality_indexes.items():
+                    expected = manifest_names[
+                        (locality_index + category_index * REPRESENTATIVE_CATEGORY_OFFSET)
+                        % len(manifest_names)
+                    ]
+                    if assignments.get(locality) != expected:
+                        mapping_mismatches.append(f"{config['slug']}/{locality}")
+            if mapping_mismatches:
+                representative_errors.append(
+                    f"representative-mapping-mismatch:{mapping_mismatches[:10]}"
+                )
 
     similarity: dict[str, dict] = {}
     if not args.skip_similarity and similarity_jobs:
@@ -409,7 +579,11 @@ def main() -> int:
                 similarity[category] = result
 
     sitemap_report, sitemap_errors = sitemap_audit(expected_urls)
-    structural_errors = sum(report["errors"] for report in category_reports) + len(sitemap_errors)
+    structural_errors = (
+        sum(report["errors"] for report in category_reports)
+        + len(sitemap_errors)
+        + len(representative_errors)
+    )
     output = {
         "site": SITE_NAME,
         "root": str(ROOT),
@@ -420,6 +594,15 @@ def main() -> int:
         "categories": category_reports,
         "sitemap": sitemap_report,
         "sitemap_errors": sitemap_errors,
+        "representative_images": {
+            "assets": len(set(representative_usage)),
+            "references": sum(representative_usage.values()),
+            "localities_with_distinct_category_images": sum(
+                1 for names in representative_by_locality.values()
+                if len(names) == len(CATEGORIES)
+            ),
+            "errors": representative_errors,
+        },
         "similarity": {key: similarity[key] for key in sorted(similarity)},
     }
     rendered = json.dumps(output, ensure_ascii=False, indent=2)

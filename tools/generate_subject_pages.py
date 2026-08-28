@@ -6,6 +6,7 @@ import html
 import json
 import re
 import shutil
+import xml.etree.ElementTree as ET
 from collections import OrderedDict
 from datetime import date, datetime, timezone
 from email.utils import format_datetime
@@ -18,6 +19,9 @@ ROOT = Path(__file__).resolve().parents[1]
 REFERENCE = ROOT.parent / "참고자료"
 SOURCE_DIR = REFERENCE / "사용한 원고" / "새 홈페이지15 추가 원고"
 COMMON_DIR = REFERENCE / "공통자료"
+REPRESENTATIVE_SOURCE_DIR = COMMON_DIR / "대표이미지"
+REPRESENTATIVE_ASSET_DIR = ROOT / "assets" / "representative"
+REPRESENTATIVE_MANIFEST = REPRESENTATIVE_ASSET_DIR / "manifest.json"
 TARGET_ROOT = ROOT / "과목별학원"
 DOMAIN = "https://xn--9p4bn5e3wjn0a.com"
 SITE_NAME = "영수코칭"
@@ -26,6 +30,19 @@ PHONE_LINK = "01068398283"
 TODAY = date.today().isoformat()
 SHARE_IMAGE_URL = DOMAIN + "/assets/images/og-share.png"
 SHARE_IMAGE_ALT = "영어와 수학의 학습 흐름을 연결하는 영수코칭 안내 이미지"
+REPRESENTATIVE_POOL_SIZE = 371
+REPRESENTATIVE_CATEGORY_OFFSET = 97
+IGNORED_PUBLIC_DIRS = {
+    ".git",
+    ".vercel",
+    "node_modules",
+    "reports",
+    "test-results",
+    "playwright-report",
+    "tmp",
+    "tools",
+    "__pycache__",
+}
 
 CATEGORIES = [
     {
@@ -142,6 +159,114 @@ def stable_choice(seed: str, values: list[str]) -> str:
         return ""
     digest = hashlib.sha256(seed.encode("utf-8")).digest()
     return values[int.from_bytes(digest[:4], "big") % len(values)]
+
+
+def representative_source_files() -> list[Path]:
+    """Select a stable, duplicate-free pool of lightweight source images."""
+    if not REPRESENTATIVE_SOURCE_DIR.is_dir():
+        raise FileNotFoundError(REPRESENTATIVE_SOURCE_DIR)
+
+    if REPRESENTATIVE_MANIFEST.is_file():
+        manifest = json.loads(REPRESENTATIVE_MANIFEST.read_text(encoding="utf-8"))
+        entries = manifest.get("images", []) if isinstance(manifest, dict) else []
+        if len(entries) != REPRESENTATIVE_POOL_SIZE:
+            raise ValueError(f"대표이미지 manifest 항목 수 오류: {len(entries)}")
+        selected: list[Path] = []
+        seen_hashes: set[str] = set()
+        for index, entry in enumerate(entries, 1):
+            if not isinstance(entry, dict):
+                raise ValueError(f"대표이미지 manifest 형식 오류: {index}")
+            source_name = str(entry.get("source_name", ""))
+            expected_hash = str(entry.get("sha256", ""))
+            expected_asset = f"rep-{index:03d}.gif"
+            if entry.get("asset_name") != expected_asset:
+                raise ValueError(f"대표이미지 manifest 자산명 오류: {index}")
+            source = REPRESENTATIVE_SOURCE_DIR / source_name
+            if not source.is_file() or source.suffix.lower() != ".gif":
+                raise FileNotFoundError(source)
+            actual_hash = hashlib.sha256(source.read_bytes()).hexdigest()
+            if actual_hash != expected_hash:
+                raise ValueError(f"대표이미지 원본 해시 불일치: {source_name}")
+            if actual_hash in seen_hashes:
+                raise ValueError(f"대표이미지 manifest 내용 중복: {source_name}")
+            seen_hashes.add(actual_hash)
+            selected.append(source)
+        return selected
+
+    unique_by_digest: dict[str, Path] = {}
+    for path in sorted(REPRESENTATIVE_SOURCE_DIR.glob("*.gif"), key=lambda item: item.name):
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        unique_by_digest.setdefault(digest, path)
+
+    ordered = sorted(
+        unique_by_digest.items(),
+        key=lambda item: hashlib.sha256(
+            f"{SITE_NAME}|representative-pool|{item[0]}".encode("utf-8")
+        ).digest(),
+    )
+    selected = [path for _digest, path in ordered[:REPRESENTATIVE_POOL_SIZE]]
+    if len(selected) != REPRESENTATIVE_POOL_SIZE:
+        raise ValueError(
+            f"대표이미지 고유 GIF가 부족합니다: expected={REPRESENTATIVE_POOL_SIZE} actual={len(selected)}"
+        )
+    return selected
+
+
+def prepare_representative_images(*, apply: bool = True) -> list[str]:
+    """Copy the selected pool to stable ASCII filenames and return those names."""
+    sources = representative_source_files()
+    if apply:
+        REPRESENTATIVE_ASSET_DIR.mkdir(parents=True, exist_ok=True)
+    names: list[str] = []
+    expected: set[str] = set()
+
+    for index, source in enumerate(sources, 1):
+        name = f"rep-{index:03d}{source.suffix.lower()}"
+        expected.add(name)
+        destination = REPRESENTATIVE_ASSET_DIR / name
+        if apply and (
+            not destination.is_file()
+            or destination.stat().st_size != source.stat().st_size
+            or hashlib.sha256(destination.read_bytes()).digest()
+            != hashlib.sha256(source.read_bytes()).digest()
+        ):
+            shutil.copy2(source, destination)
+        names.append(name)
+
+    manifest = {
+        "version": 1,
+        "selection": "371 unique GIF files, deterministic SHA-256 order",
+        "images": [
+            {
+                "asset_name": name,
+                "source_name": source.name,
+                "sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+            }
+            for name, source in zip(names, sources)
+        ],
+    }
+    manifest_text = json.dumps(manifest, ensure_ascii=False, indent=2) + "\n"
+    if apply:
+        if REPRESENTATIVE_MANIFEST.is_file():
+            if REPRESENTATIVE_MANIFEST.read_text(encoding="utf-8") != manifest_text:
+                raise ValueError("대표이미지 manifest가 계산 결과와 일치하지 않습니다")
+        else:
+            REPRESENTATIVE_MANIFEST.write_text(manifest_text, encoding="utf-8")
+
+    if apply:
+        for stale in REPRESENTATIVE_ASSET_DIR.glob("rep-*"):
+            if stale.is_file() and stale.name not in expected:
+                stale.unlink()
+    return names
+
+
+def representative_image_name(
+    names: list[str], *, category_index: int, locality_index: int,
+) -> str:
+    if len(names) != REPRESENTATIVE_POOL_SIZE:
+        raise ValueError(f"대표이미지 풀 크기 오류: {len(names)}")
+    index = (locality_index + category_index * REPRESENTATIVE_CATEGORY_OFFSET) % len(names)
+    return names[index]
 
 
 def korean_josa(value: str, pair: str) -> str:
@@ -842,7 +967,7 @@ def detail_graph(
 
 def detail_page(
     *, config: dict[str, str], sections: dict[str, str], locality: str,
-    slug: str, row: dict[str, str], map_file: str,
+    slug: str, row: dict[str, str], map_file: str, representative_image: str,
 ) -> str:
     title = normalize(sections["페이지타이틀"])
     context = content_context(title=title, locality=locality, slug=slug, row=row, config=config)
@@ -918,6 +1043,7 @@ def detail_page(
 
     <section class="academy-media-section" aria-label="{esc(title)} 이미지 안내">
       <div class="academy-media-grid">
+        <img class="academy-representative-image" src="{esc(representative_image)}" alt="{esc(title)} 대표" style="display:none;">
         <figure class="academy-main-media reveal"><img src="{esc(body_image)}" width="1300" height="1900" alt="{esc(title)} 수업 안내 {esc(SITE_NAME)}" fetchpriority="high"><figcaption>{esc(title)} 학습관리 안내</figcaption></figure>
         <figure class="academy-map-card reveal"><img src="{esc(map_image)}" alt="{esc(title)} 지도 {esc(SITE_NAME)}" loading="lazy"><figcaption>{esc(locality)} 센터 위치 참고 지도</figcaption></figure>
       </div>
@@ -1037,22 +1163,29 @@ def subject_hub() -> str:
 
 def write_sitemap() -> int:
     pages: list[tuple[str, Path]] = []
-    for path in sorted(ROOT.rglob("index.html")):
-        if "reports" in path.parts:
+    for path in ROOT.rglob("index.html"):
+        relative_parts = path.relative_to(ROOT).parts
+        if any(part in IGNORED_PUBLIC_DIRS for part in relative_parts):
             continue
         rel = path.relative_to(ROOT)
         parts = list(rel.parts[:-1])
         url = DOMAIN + ("/" if not parts else quote("/" + "/".join(parts) + "/", safe="/"))
         pages.append((url, path))
+    pages.sort(key=lambda item: (item[0].count("/"), item[0]))
     urls = [url for url, _ in pages]
     if len(urls) != len(set(urls)):
         raise ValueError("Duplicate sitemap URLs")
-    entries = "\n".join(
-        f"  <url><loc>{esc(url)}</loc><lastmod>{datetime.fromtimestamp(path.stat().st_mtime).date().isoformat()}</lastmod></url>"
-        for url, path in pages
-    )
-    value = f'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n{entries}\n</urlset>\n'
-    (ROOT / "sitemap.xml").write_text(value, encoding="utf-8")
+    namespace = "http://www.sitemaps.org/schemas/sitemap/0.9"
+    ET.register_namespace("", namespace)
+    root = ET.Element(ET.QName(namespace, "urlset"))
+    for url, path in pages:
+        item = ET.SubElement(root, ET.QName(namespace, "url"))
+        ET.SubElement(item, ET.QName(namespace, "loc")).text = url
+        ET.SubElement(item, ET.QName(namespace, "lastmod")).text = (
+            datetime.fromtimestamp(path.stat().st_mtime, timezone.utc).date().isoformat()
+        )
+    ET.indent(root, space="  ")
+    ET.ElementTree(root).write(ROOT / "sitemap.xml", encoding="utf-8", xml_declaration=True)
     return len(urls)
 
 
@@ -1099,11 +1232,15 @@ def main() -> None:
     if set(center_by_locality) != set(map_by_locality):
         raise ValueError("Center and map locality sets differ")
     TARGET_ROOT.mkdir(parents=True, exist_ok=True)
+    representative_images = prepare_representative_images()
+    locality_indexes = {
+        locality: index for index, locality in enumerate(sorted(center_by_locality))
+    }
     (TARGET_ROOT / "index.html").write_text(subject_hub(), encoding="utf-8")
     generated = 0
     category_report = {}
     all_titles: set[str] = set()
-    for config in CATEGORIES:
+    for category_index, config in enumerate(CATEGORIES):
         zip_path = SOURCE_DIR / config["zip"]
         if not zip_path.exists():
             raise FileNotFoundError(zip_path)
@@ -1139,9 +1276,22 @@ def main() -> None:
                 row = center_by_locality[locality]
                 slug = locality
                 map_file = resolve_map_file(map_by_locality[locality], row["동 영어"])
+                representative_image = "../../../assets/representative/" + representative_image_name(
+                    representative_images,
+                    category_index=category_index,
+                    locality_index=locality_indexes[locality],
+                )
                 target = category_dir / slug
                 target.mkdir(parents=True, exist_ok=True)
-                page = detail_page(config=config, sections=sections, locality=locality, slug=slug, row=row, map_file=map_file)
+                page = detail_page(
+                    config=config,
+                    sections=sections,
+                    locality=locality,
+                    slug=slug,
+                    row=row,
+                    map_file=map_file,
+                    representative_image=representative_image,
+                )
                 (target / "index.html").write_text(page, encoding="utf-8")
                 meta = compact_meta(sections["메타설명"], title, row, config)
                 meta_lengths.append(len(meta))
@@ -1153,7 +1303,14 @@ def main() -> None:
     sitemap_count = write_sitemap()
     write_rss()
     write_llms()
-    report = {"generated_detail_pages": generated, "category_hubs": len(CATEGORIES), "sitemap_urls": sitemap_count, "categories": category_report, "date": TODAY}
+    report = {
+        "generated_detail_pages": generated,
+        "category_hubs": len(CATEGORIES),
+        "representative_images": len(representative_images),
+        "sitemap_urls": sitemap_count,
+        "categories": category_report,
+        "date": TODAY,
+    }
     reports = ROOT / "reports"
     reports.mkdir(exist_ok=True)
     (reports / "subject_generation_report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
