@@ -14,6 +14,8 @@ from pathlib import Path
 from urllib.parse import quote
 from zipfile import ZipFile
 
+from PIL import Image
+
 
 ROOT = Path(__file__).resolve().parents[1]
 REFERENCE = ROOT.parent / "참고자료"
@@ -89,7 +91,35 @@ CATEGORIES = [
         "english": "MIDDLE SCHOOL ENGLISH",
         "summary": "학교 교과와 어휘·문법·독해·서술형 대비를 연결하는 지역별 중등 영어 안내입니다.",
     },
+    {
+        "label": "초등학생 영어학원",
+        "slug": "초등학생영어학원",
+        "zip": "초등학생 영어학원.zip",
+        "level": "초등학생",
+        "subject": "영어",
+        "school_field": "타깃학교\n(초)",
+        "grade_field": "가능학년\n(영어)",
+        "english": "ELEMENTARY SCHOOL ENGLISH",
+        "summary": "학교 교과와 어휘·문장 이해·읽기·쓰기의 기초 흐름을 확인하는 지역별 초등 영어 안내입니다.",
+    },
+    {
+        "label": "초등학생 수학학원",
+        "slug": "초등학생수학학원",
+        "zip": "초등학생 수학학원.zip",
+        "level": "초등학생",
+        "subject": "수학",
+        "school_field": "타깃학교\n(초)",
+        "grade_field": "가능학년\n(수학)",
+        "english": "ELEMENTARY SCHOOL MATH",
+        "summary": "교과 진도와 연산·개념·문제 이해·풀이 습관의 기초를 확인하는 지역별 초등 수학 안내입니다.",
+    },
 ]
+
+REQUIRED_SECTIONS = ("페이지타이틀", "메타설명", "본문", "FAQ", "학부모후기", "JSON-LD 요약")
+MATH_SECTION_ALIASES = {
+    "상담 상황 예시": "학부모후기",
+    "구조화 데이터용 요약": "JSON-LD 요약",
+}
 
 
 def esc(value: object) -> str:
@@ -118,6 +148,17 @@ def parse_sections(text: str) -> dict[str, str]:
         end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
         sections[match.group(1).strip()] = text[match.end():end].strip()
     return sections
+
+
+def normalize_math_section_aliases(sections: dict[str, str]) -> dict[str, str]:
+    """Map the two known math-manuscript labels without accepting fuzzy variants."""
+    normalized: dict[str, str] = {}
+    for label, value in sections.items():
+        canonical = MATH_SECTION_ALIASES.get(label, label)
+        if canonical in normalized:
+            raise ValueError(f"Duplicate section after math alias normalization: {canonical}")
+        normalized[canonical] = value
+    return normalized
 
 
 def parse_body(body: str) -> tuple[str, list[tuple[str, list[str]]]]:
@@ -293,6 +334,8 @@ def korean_josa(value: str, pair: str) -> str:
 def content_context(
     *, title: str, locality: str, slug: str, row: dict[str, str], config: dict[str, str],
 ) -> dict[str, object]:
+    category_schools = schools_for(row, config["school_field"])
+    all_schools = all_schools_for(row)
     return {
         "seed": f"{config['slug']}|{slug}|{locality}",
         "title": title,
@@ -300,7 +343,8 @@ def content_context(
         "region": normalize(f"{row.get('지역', '')} {row.get('시or구', '')}"),
         "center": normalize(row.get("센터명", "")) or f"{locality} 학습센터",
         "address": normalize(row.get("센터 주소", "")),
-        "schools": schools_for(row, config["school_field"]),
+        "schools": category_schools,
+        "disallowed_schools": [name for name in all_schools if name not in set(category_schools)],
         "grades": normalize(row.get(config["grade_field"], "")),
         "level": config["level"],
         "subject": config["subject"],
@@ -343,10 +387,27 @@ def enforce_verified_school_claims(
     value: str, context: dict[str, object], seed_suffix: str,
 ) -> str:
     """Keep school claims aligned with the category-specific center-data column."""
-    if seed_suffix.startswith("heading") or seed_suffix == "meta-description":
+    markers = (
+        "수업학교", "수업 학교", "학교 정보", "학교·학년 정보", "학교명",
+        "학교 목록", "학교 기준", "학교군", "학교 범위", "대조할 학교",
+        "자료에 있는 학교", "제공된 학교",
+    )
+    disallowed = [str(item) for item in context.get("disallowed_schools", [])]
+
+    def contains_named_school(text: str, name: str) -> bool:
+        # A suffix boundary avoids treating an address such as 갈매중앙로 as
+        # the school name 갈매중, while still matching 천호중학교.
+        return bool(re.search(
+            re.escape(name) + r"(?=$|학교|[\s,·/()\[\]{}'\"“”‘’.:;!?])",
+            text,
+        ))
+
+    has_disallowed_name = any(contains_named_school(value, name) for name in disallowed)
+    if seed_suffix.startswith("heading"):
+        return "학교 정보와 시험 범위 확인 기준" if has_disallowed_name else value
+    if seed_suffix == "meta-description" and not has_disallowed_name:
         return value
-    markers = ("수업학교", "수업 학교", "학교 정보", "학교명", "학교 기준", "학교군", "학교 범위")
-    if not any(marker in value for marker in markers):
+    if not has_disallowed_name and not any(marker in value for marker in markers):
         return value
     schools = [str(item) for item in context["schools"]]
     level = str(context["level"])
@@ -389,7 +450,8 @@ def enforce_verified_school_claims(
     normalized = []
     for index, sentence in enumerate(sentences):
         has_marker = any(marker in sentence for marker in markers)
-        is_claim = has_marker
+        has_wrong_name = any(contains_named_school(sentence, name) for name in disallowed)
+        is_claim = has_marker or has_wrong_name
         normalized.append(verified_sentence(sentence, index) if is_claim else sentence)
     return " ".join(normalized)
 
@@ -466,6 +528,20 @@ def naturalize_text(value: str, context: dict[str, object], seed_suffix: str) ->
         ("페이지입니다", "안내입니다"),
     )
     for old, new in replacements:
+        text = text.replace(old, new)
+    # A small number of supplied secondary keywords describe academy-office
+    # operations rather than a parent's learning decision. Keep the underlying
+    # passage but translate those terms into student-facing review criteria.
+    for old, new in {
+        "학원매출관리": "학습 진행 기록",
+        "학원운영자": "담당 선생님",
+        "학원회원관리": "학생 학습 기록 관리",
+        "학원고객관리": "학부모 상담 기록 관리",
+        "학원데스크": "상담 안내",
+        "학원관리솔루션": "학습관리 기록",
+        "학원창업": "학습 상담 준비",
+        "학원휴게실": "등·하원 대기 환경",
+    }.items():
         text = text.replace(old, new)
     text = text.replace("원고", "안내").replace("키워드", "확인 항목")
     text = re.sub(r"‘([^’]+)’\s*(?:확인 기준|관리 방식|운영 항목)\s*(?:체크|점검)\s*기준", r"‘\1’ 점검 기준", text)
@@ -679,7 +755,10 @@ def individualize_body(
     ]
 
     category = str(context["category"])
-    intensive_categories = {"중학생수학학원", "중학생영어학원", "고등학생영어학원"}
+    intensive_categories = {
+        "중학생수학학원", "중학생영어학원", "고등학생영어학원",
+        "초등학생수학학원", "초등학생영어학원",
+    }
     if category in intensive_categories and len(natural_sections) == 6:
         # Keep the opening/closing intent but use one of up to 24 meaningful middle
         # orders, derived from each locality's actual headings and facts.
@@ -689,7 +768,13 @@ def individualize_body(
         ).hexdigest())
         natural_sections = [natural_sections[index] for index in [0, *middle, 5]]
 
-    fact_limit = {"중학생수학학원": 4, "중학생영어학원": 3, "고등학생영어학원": 3}.get(category, 1)
+    fact_limit = {
+        "중학생수학학원": 4,
+        "중학생영어학원": 3,
+        "고등학생영어학원": 3,
+        "초등학생수학학원": 3,
+        "초등학생영어학원": 3,
+    }.get(category, 1)
     facts = factual_context_paragraphs(context, situation)[:fact_limit]
     if natural_sections:
         slot_order = list(range(len(natural_sections)))
@@ -746,6 +831,18 @@ def compact_meta(original: str, title: str, row: dict[str, str], config: dict[st
     return value
 
 
+def clamp_meta(value: str, minimum: int = 70, maximum: int = 100) -> str:
+    """Keep the final, post-normalization meta description inside its contract."""
+    value = normalize(value)
+    if len(value) <= maximum:
+        return value
+    prefix = value[: maximum - 1].rstrip(" ,·;:")
+    word_boundary = prefix.rfind(" ")
+    if word_boundary >= minimum:
+        prefix = prefix[:word_boundary].rstrip(" ,·;:")
+    return prefix + "."
+
+
 def paragraph_html(value: str, css: str = "") -> str:
     class_attr = f' class="{css}"' if css else ""
     return f"<p{class_attr}>{esc(normalize(value))}</p>"
@@ -770,7 +867,7 @@ def site_header(active: str = "subjects") -> str:
     return (
         '<a class="skip-link" href="#main">본문 바로가기</a>'
         '<header class="site-header"><div class="header-inner shell">'
-        '<a class="brand" href="/" aria-label="영수코칭 홈"><span class="brand-mark" aria-hidden="true">YS</span>'
+        '<a class="brand" href="/"><span class="brand-mark" aria-hidden="true">YS</span>'
         '<span class="brand-copy"><strong>영수코칭</strong><small>ENGLISH × MATH COACHING</small></span></a>'
         f'<nav class="nav" aria-label="주요 메뉴">{nav}</nav>'
         '<a class="header-cta" href="/상담문의/">상담 준비하기</a>'
@@ -845,7 +942,26 @@ def offer_schema(row: dict[str, str]) -> list[dict]:
 
 
 def schools_for(row: dict[str, str], field: str) -> list[str]:
-    return [normalize(value) for value in row.get(field, "").split(",") if normalize(value)]
+    values: list[str] = []
+    seen: set[str] = set()
+    for raw in row.get(field, "").split(","):
+        value = normalize(raw)
+        if value and value not in seen:
+            values.append(value)
+            seen.add(value)
+    return values
+
+
+def all_schools_for(row: dict[str, str]) -> list[str]:
+    """Return every supplied school name for a center, without duplicates."""
+    values: list[str] = []
+    seen: set[str] = set()
+    for field in ("타깃학교\n(초)", "타깃학교\n(중)", "타깃학교\n(고)"):
+        for value in schools_for(row, field):
+            if value not in seen:
+                values.append(value)
+                seen.add(value)
+    return values
 
 
 def resolve_map_file(raw_name: str, slug: str) -> str:
@@ -871,6 +987,19 @@ def resolve_map_file(raw_name: str, slug: str) -> str:
     if len(matches) == 1:
         return matches[0]
     raise FileNotFoundError(f"Map missing or ambiguous: raw={raw_name!r}, slug={slug!r}, matches={matches}")
+
+
+def map_image_dimensions(map_file: str) -> tuple[int, int]:
+    path = ROOT / "assets" / "maps" / map_file
+    return image_dimensions(path)
+
+
+def image_dimensions(path: Path) -> tuple[int, int]:
+    with Image.open(path) as image:
+        width, height = image.size
+    if width <= 0 or height <= 0:
+        raise ValueError(f"Invalid image dimensions: {path}: {width}x{height}")
+    return width, height
 
 
 def detail_graph(
@@ -971,9 +1100,9 @@ def detail_page(
 ) -> str:
     title = normalize(sections["페이지타이틀"])
     context = content_context(title=title, locality=locality, slug=slug, row=row, config=config)
-    description = final_polish_text(naturalize_text(
+    description = clamp_meta(final_polish_text(naturalize_text(
         compact_meta(sections["메타설명"], title, row, config), context, "meta-description"
-    ))
+    )))
     raw_intro, raw_body_sections = parse_body(sections["본문"])
     intro, body_sections = individualize_body(raw_intro, raw_body_sections, context)
     # The same transformed FAQ list feeds both the visible accordions and
@@ -991,8 +1120,13 @@ def detail_page(
         raise ValueError(f"Unexpected content shape: {title}: body={len(body_sections)} faq={len(faq)}")
     canonical = absolute_url("과목별학원", config["slug"], slug)
     body_image_name = "seoul6839.webp" if row.get("지역") == "서울" else "local6839.webp"
+    body_image_stem = Path(body_image_name).stem
     body_image = f"../../../assets/centers/common/{body_image_name}"
+    body_image_480 = f"../../../assets/centers/common/{body_image_stem}-480.webp"
+    body_image_720 = f"../../../assets/centers/common/{body_image_stem}-720.webp"
+    body_width, body_height = image_dimensions(ROOT / "assets" / "centers" / "common" / body_image_name)
     map_image = f"../../../assets/maps/{map_file}"
+    map_width, map_height = map_image_dimensions(map_file)
     image_url = DOMAIN + f"/assets/centers/common/{body_image_name}"
     graph = detail_graph(
         title=title, description=description, canonical=canonical, locality=locality, slug=slug,
@@ -1017,6 +1151,11 @@ def detail_page(
         f'<a class="btn btn-outline academy-fee-link" href="{esc(tuition)}" target="_blank" rel="noopener">센터 교습비 안내 확인</a>'
         if tuition else ""
     )
+    school_tags_line = (
+        f'        <div class="academy-school-tags" aria-label="제공 자료에 포함된 수업 학교">{school_tags}</div>\n'
+        if school_tags else ""
+    )
+    tuition_line = f"        {tuition_html}\n" if tuition_html else ""
     related_links = "".join(
         f'<a href="/과목별학원/{item["slug"]}/{esc(slug)}/">{esc(locality)} {esc(item["label"])}</a>'
         for item in CATEGORIES if item["slug"] != config["slug"]
@@ -1044,8 +1183,8 @@ def detail_page(
     <section class="academy-media-section" aria-label="{esc(title)} 이미지 안내">
       <div class="academy-media-grid">
         <img class="academy-representative-image" src="{esc(representative_image)}" alt="{esc(title)} 대표" style="display:none;">
-        <figure class="academy-main-media reveal"><img src="{esc(body_image)}" width="1300" height="1900" alt="{esc(title)} 수업 안내 {esc(SITE_NAME)}" fetchpriority="high"><figcaption>{esc(title)} 학습관리 안내</figcaption></figure>
-        <figure class="academy-map-card reveal"><img src="{esc(map_image)}" alt="{esc(title)} 지도 {esc(SITE_NAME)}" loading="lazy"><figcaption>{esc(locality)} 센터 위치 참고 지도</figcaption></figure>
+        <figure class="academy-main-media reveal"><img src="{esc(body_image)}" srcset="{esc(body_image_480)} 480w, {esc(body_image_720)} 720w, {esc(body_image)} {body_width}w" sizes="(max-width: 720px) calc(100vw - 30px), 620px" width="{body_width}" height="{body_height}" alt="{esc(title)} 수업 안내 {esc(SITE_NAME)}" loading="lazy" decoding="async"><figcaption>{esc(title)} 학습관리 안내</figcaption></figure>
+        <figure class="academy-map-card reveal"><img src="{esc(map_image)}" width="{map_width}" height="{map_height}" alt="{esc(title)} 지도 {esc(SITE_NAME)}" loading="lazy"><figcaption>{esc(locality)} 센터 위치 참고 지도</figcaption></figure>
       </div>
     </section>
 
@@ -1060,9 +1199,7 @@ def detail_page(
           <div class="academy-fact-card"><strong>수업 가능 학년</strong><span>{esc(grades)}</span></div>
           <div class="academy-fact-card"><strong>교육지원청 등록 정보</strong><span>{esc(identifier)}</span></div>
         </div>
-        {('<div class="academy-school-tags" aria-label="제공 자료에 포함된 수업 학교">' + school_tags + '</div>') if school_tags else ''}
-        {tuition_html}
-      </section>
+{school_tags_line}{tuition_line}      </section>
 
       <article class="academy-article reveal" aria-labelledby="article-title">
         <p class="eyebrow">Local Learning Article</p><h2 id="article-title">{esc(title)} 선택과 학습관리 기준</h2>
@@ -1138,7 +1275,7 @@ def category_hub(rows: list[dict[str, str]], config: dict[str, str]) -> str:
 def subject_hub() -> str:
     canonical = absolute_url("과목별학원")
     title = f"과목별학원 | {SITE_NAME}"
-    description = "고등학생·중학생 영어와 수학의 지역별 학습 안내를 과목과 학년 단계에 따라 찾아볼 수 있도록 정리했습니다."
+    description = "초등학생·중학생·고등학생 영어와 수학의 지역별 학습 안내를 과목과 학년 단계에 따라 찾아볼 수 있도록 정리했습니다."
     items = [
         {"@type": "ListItem", "position": index, "name": config["label"], "url": absolute_url("과목별학원", config["slug"])}
         for index, config in enumerate(CATEGORIES, 1)
@@ -1154,9 +1291,9 @@ def subject_hub() -> str:
     )
     head = page_head(title=title, description=description, canonical=canonical, asset_prefix="../", image_url=DOMAIN + "/assets/images/english-math-coaching.webp", graph=graph, page_type="website")
     return f'''<!doctype html><html lang="ko">{head}<body class="academy-page">{site_header("subjects")}<main id="main">
-      <header class="academy-hero reveal"><div class="academy-hero-copy"><nav class="academy-breadcrumb" aria-label="현재 위치"><a href="/">홈</a><span>›</span><span aria-current="page">과목별학원</span></nav><p class="eyebrow">Subject &amp; Grade Academy Guide</p><h1>과목과 학년을 먼저 고르고,<br>동네별 안내를 확인하세요.</h1><p class="lead">영어와 수학은 학년 단계에 따라 확인할 학교 학습과 관리 기준이 달라집니다. 필요한 카테고리를 선택하면 371개 동네별 학습 안내와 제공된 센터 정보를 확인할 수 있습니다.</p></div><aside class="academy-hero-aside"><strong>4 × 371</strong><span>4개 카테고리 · 1,484개 지역별 학습 안내</span></aside></header>
+      <header class="academy-hero reveal"><div class="academy-hero-copy"><nav class="academy-breadcrumb" aria-label="현재 위치"><a href="/">홈</a><span>›</span><span aria-current="page">과목별학원</span></nav><p class="eyebrow">Subject &amp; Grade Academy Guide</p><h1>과목과 학년을 먼저 고르고,<br>동네별 안내를 확인하세요.</h1><p class="lead">영어와 수학은 학년 단계에 따라 확인할 학교 학습과 관리 기준이 달라집니다. 필요한 카테고리를 선택하면 371개 동네별 학습 안내와 제공된 센터 정보를 확인할 수 있습니다.</p></div><aside class="academy-hero-aside"><strong>6 × 371</strong><span>6개 카테고리 · 2,226개 지역별 학습 안내</span></aside></header>
       <section class="section"><div class="section-head reveal"><p class="eyebrow blue">Choose A Learning Track</p><h2>현재 학년과 과목에 맞는 안내</h2><p class="lead">학년과 과목별로 확인할 기준을 나누고, 동네 페이지는 제공된 개별 학습 안내와 실제 센터 자료를 기반으로 구성했습니다.</p></div><div class="academy-category-grid">{cards}</div></section>
-      <section class="process-band"><div class="section"><div class="process-intro reveal"><p class="eyebrow">How To Use</p><h2>페이지를 확인하는 순서</h2><p class="lead">광고 문구보다 학생에게 적용할 수 있는 정보가 있는지 차례로 확인하세요.</p></div><div class="process-list"><article class="process-item reveal"><div><h3>학년·과목 선택</h3><p>고등학생과 중학생, 영어와 수학 중 현재 필요한 카테고리를 고릅니다.</p></div></article><article class="process-item reveal"><div><h3>동네·센터 정보 확인</h3><p>지역 검색을 사용해 주소, 수업 가능 학년, 학교와 교습비 안내 자료를 확인합니다.</p></div></article><article class="process-item reveal"><div><h3>학습 안내와 FAQ 비교</h3><p>학생 상황, 학교 학습, 과제·오답 관리 기준과 상담 질문을 읽어봅니다.</p></div></article><article class="process-item reveal"><div><h3>상담 전 우선순위 정리</h3><p>최근 학습 결과와 어려운 단원을 준비해 먼저 해결할 문제를 정합니다.</p></div></article></div></div></section>
+      <section class="process-band"><div class="section"><div class="process-intro reveal"><p class="eyebrow">How To Use</p><h2>페이지를 확인하는 순서</h2><p class="lead">광고 문구보다 학생에게 적용할 수 있는 정보가 있는지 차례로 확인하세요.</p></div><div class="process-list"><article class="process-item reveal"><div><h3>학년·과목 선택</h3><p>초등학생·중학생·고등학생, 영어와 수학 중 현재 필요한 카테고리를 고릅니다.</p></div></article><article class="process-item reveal"><div><h3>동네·센터 정보 확인</h3><p>지역 검색을 사용해 주소, 수업 가능 학년, 학교와 교습비 안내 자료를 확인합니다.</p></div></article><article class="process-item reveal"><div><h3>학습 안내와 FAQ 비교</h3><p>학생 상황, 학교 학습, 과제·오답 관리 기준과 상담 질문을 읽어봅니다.</p></div></article><article class="process-item reveal"><div><h3>상담 전 우선순위 정리</h3><p>최근 학습 결과와 어려운 단원을 준비해 먼저 해결할 문제를 정합니다.</p></div></article></div></div></section>
       <section class="cta-section"><div class="cta-panel shell reveal"><p class="eyebrow">Start With The Student</p><h2>카테고리를 고른 뒤에는 학생의 현재 기록을 함께 보세요.</h2><p class="lead">같은 동네와 학년이어도 필요한 수업 순서는 다를 수 있습니다. 최근 자료를 기준으로 상담의 첫 질문을 정리해보세요.</p><div class="actions"><a class="btn btn-primary" href="/상담문의/">상담 준비하기</a><a class="btn btn-blue" href="/학습가이드/">학습가이드 보기</a></div></div></section>
     </main>{site_footer()}<script src="../assets/site.js" defer></script></body></html>'''
 
@@ -1193,7 +1330,7 @@ def write_rss() -> None:
     build_date = format_datetime(datetime.now(timezone.utc))
     entries = [
         ("영어·수학 학습가이드", absolute_url("학습가이드"), "영어와 수학의 진단, 실행관리, 오답 재학습 기준을 안내합니다."),
-        ("과목별학원", absolute_url("과목별학원"), "고등학생·중학생 영어와 수학의 지역별 안내를 정리했습니다."),
+        ("과목별학원", absolute_url("과목별학원"), "초등학생·중학생·고등학생 영어와 수학의 지역별 안내를 정리했습니다."),
     ] + [
         (config["label"], absolute_url("과목별학원", config["slug"]), config["summary"])
         for config in CATEGORIES
@@ -1257,8 +1394,9 @@ def main() -> None:
             for name in names:
                 raw = archive.read(name).decode("utf-8-sig")
                 sections = parse_sections(raw)
-                required = ["페이지타이틀", "메타설명", "본문", "FAQ", "학부모후기", "JSON-LD 요약"]
-                if list(sections) != required:
+                if config["subject"] == "수학":
+                    sections = normalize_math_section_aliases(sections)
+                if tuple(sections) != REQUIRED_SECTIONS:
                     raise ValueError(f"{name}: section mismatch: {list(sections)}")
                 title = normalize(sections["페이지타이틀"])
                 suffix = " " + config["label"]
@@ -1300,6 +1438,19 @@ def main() -> None:
                 raise ValueError(f"{config['zip']}: locality set mismatch")
         (category_dir / "index.html").write_text(category_hub(center_rows, config), encoding="utf-8")
         category_report[config["slug"]] = {"pages": len(seen_localities), "meta_min": min(meta_lengths), "meta_max": max(meta_lengths)}
+    # Keep the anchor navigation part of the canonical generation pipeline so
+    # a future content regeneration cannot silently remove it.
+    from apply_anchor_toc import detail_pages as toc_detail_pages, transform as transform_toc
+
+    toc_pages = toc_detail_pages(ROOT)
+    if len(toc_pages) != generated:
+        raise ValueError(f"TOC page count mismatch: details={generated} toc-targets={len(toc_pages)}")
+    toc_links = 0
+    for page_path in toc_pages:
+        source = page_path.read_text(encoding="utf-8")
+        output, headings = transform_toc(source, page_path)
+        page_path.write_text(output, encoding="utf-8")
+        toc_links += len(headings)
     sitemap_count = write_sitemap()
     write_rss()
     write_llms()
@@ -1307,6 +1458,8 @@ def main() -> None:
         "generated_detail_pages": generated,
         "category_hubs": len(CATEGORIES),
         "representative_images": len(representative_images),
+        "anchor_toc_pages": len(toc_pages),
+        "anchor_toc_links": toc_links,
         "sitemap_urls": sitemap_count,
         "categories": category_report,
         "date": TODAY,

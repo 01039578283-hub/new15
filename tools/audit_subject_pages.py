@@ -22,7 +22,10 @@ from generate_subject_pages import (
     REPRESENTATIVE_POOL_SIZE,
     ROOT,
     SITE_NAME,
+    all_schools_for,
     absolute_url,
+    load_csv,
+    schools_for,
 )
 
 
@@ -52,6 +55,16 @@ REPRESENTATIVE_BEFORE_MAIN_RE = re.compile(
     r'<img\b(?=[^>]*\bclass=["\'][^"\']*\bacademy-representative-image\b[^"\']*["\'])[^>]*>'
     r'\s*<figure\b(?=[^>]*\bclass=["\'][^"\']*\bacademy-main-media\b[^"\']*["\'])[^>]*>',
     re.IGNORECASE,
+)
+MAP_CARD_IMG_RE = re.compile(
+    r'<figure\b(?=[^>]*\bclass=["\'][^"\']*\bacademy-map-card\b[^"\']*["\'])[^>]*>'
+    r'.*?(<img\b[^>]*>)',
+    re.IGNORECASE | re.DOTALL,
+)
+MAIN_MEDIA_IMG_RE = re.compile(
+    r'<figure\b(?=[^>]*\bclass=["\'][^"\']*\bacademy-main-media\b[^"\']*["\'])[^>]*>'
+    r'.*?(<img\b[^>]*>)',
+    re.IGNORECASE | re.DOTALL,
 )
 REPRESENTATIVE_ASSET_DIR = (ROOT / "assets" / "representative").resolve()
 
@@ -164,6 +177,44 @@ def schema_faq(data_blocks: list[object]) -> list[tuple[str, str]]:
     return []
 
 
+def supplied_school_name_present(text: str, name: str) -> bool:
+    """Match a supplied school name without confusing it with an address."""
+    return bool(re.search(
+        re.escape(name) + r"(?=$|학교|[\s,·/()\[\]{}'\"“”‘’.:;!?])",
+        text,
+    ))
+
+
+def visible_school_tags(source: str) -> list[str]:
+    section = re.search(
+        r'<div\b[^>]*class=["\'][^"\']*\bacademy-school-tags\b[^"\']*["\'][^>]*>'
+        r"(.*?)</div>",
+        source,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if not section:
+        return []
+    return [
+        plain_text(value)
+        for value in re.findall(r"<span\b[^>]*>(.*?)</span>", section.group(1), re.IGNORECASE | re.DOTALL)
+    ]
+
+
+def article_school_mentions(data_blocks: list[object]) -> list[str]:
+    for data in data_blocks:
+        article = graph_node(data, "Article")
+        if not article:
+            continue
+        names: list[str] = []
+        for mention in article.get("mentions", []):
+            if isinstance(mention, dict) and mention.get("@type") == "School":
+                name = plain_text(str(mention.get("name", "")))
+                if name:
+                    names.append(name)
+        return names
+    return []
+
+
 def local_target(page: Path, value: str) -> Path | None:
     value = normalize_url(value)
     if not value or value.startswith(("#", "tel:", "mailto:", "data:", "javascript:")):
@@ -254,7 +305,7 @@ def similarity_worker(job: tuple[str, list[tuple[str, str, str, str]]]) -> tuple
 
 
 def audit_category(
-    config: dict[str, str],
+    config: dict[str, str], center_by_locality: dict[str, dict[str, str]],
 ) -> tuple[dict, list[tuple[str, str, str, str]], set[str], dict[str, str]]:
     category_slug = config["slug"]
     category_root = ROOT / "과목별학원" / category_slug
@@ -270,6 +321,7 @@ def audit_category(
     checked_links = 0
     checked_images = 0
     representative_assignments: dict[str, str] = {}
+    school_claim_pages_checked = 0
 
     for page in pages:
         slug = page.parent.name
@@ -314,6 +366,10 @@ def audit_category(
         else:
             meta = plain_text(meta_match.group(1))
             metas.append(meta)
+            if not 70 <= len(meta) <= 100:
+                errors.append(
+                    f"meta-length:{category_slug}/{slug}:expected-70-100:actual-{len(meta)}"
+                )
         if not canonical_match:
             errors.append(f"canonical-missing:{category_slug}/{slug}")
         elif normalize_url(canonical_match.group(1)) != expected_url:
@@ -334,6 +390,40 @@ def audit_category(
         if forbidden_types:
             errors.append(f"schema-forbidden:{category_slug}/{slug}:{','.join(sorted(forbidden_types))}")
 
+        row = center_by_locality.get(slug)
+        if row is None:
+            errors.append(f"center-row-missing:{category_slug}/{slug}")
+        else:
+            school_claim_pages_checked += 1
+            allowed_schools = schools_for(row, config["school_field"])
+            disallowed_schools = [
+                name for name in all_schools_for(row) if name not in set(allowed_schools)
+            ]
+            visible_source = re.sub(
+                r"<script\b.*?</script>", " ", source,
+                flags=re.IGNORECASE | re.DOTALL,
+            )
+            wrong_names = [
+                name for name in disallowed_schools
+                if supplied_school_name_present(visible_source, name)
+            ]
+            if wrong_names:
+                errors.append(
+                    f"school-claim-out-of-scope:{category_slug}/{slug}:{','.join(wrong_names)}"
+                )
+            visible_schools = visible_school_tags(source)
+            if visible_schools != allowed_schools:
+                errors.append(
+                    f"school-tags-mismatch:{category_slug}/{slug}:"
+                    f"expected-{allowed_schools}:actual-{visible_schools}"
+                )
+            structured_schools = article_school_mentions(blocks)
+            if structured_schools != allowed_schools:
+                errors.append(
+                    f"school-schema-mismatch:{category_slug}/{slug}:"
+                    f"expected-{allowed_schools}:actual-{structured_schools}"
+                )
+
         screen_faq = visible_faq(source)
         structured_faq = schema_faq(blocks)
         if not screen_faq:
@@ -345,6 +435,45 @@ def audit_category(
         if not images:
             errors.append(f"image-missing:{category_slug}/{slug}")
         checked_images += len(images)
+
+        map_match = MAP_CARD_IMG_RE.search(source)
+        if not map_match:
+            errors.append(f"map-image-missing:{category_slug}/{slug}")
+        else:
+            map_tag = map_match.group(1)
+            width = tag_attribute(map_tag, "width")
+            height = tag_attribute(map_tag, "height")
+            if not width.isdigit() or not height.isdigit() or int(width) <= 0 or int(height) <= 0:
+                errors.append(
+                    f"map-image-dimensions:{category_slug}/{slug}:{width}x{height}"
+                )
+
+        main_media_match = MAIN_MEDIA_IMG_RE.search(source)
+        if not main_media_match:
+            errors.append(f"main-media-missing:{category_slug}/{slug}")
+        else:
+            main_media_tag = main_media_match.group(1)
+            width = tag_attribute(main_media_tag, "width")
+            height = tag_attribute(main_media_tag, "height")
+            srcset = tag_attribute(main_media_tag, "srcset")
+            candidates = [item.strip().split()[0] for item in srcset.split(",") if item.strip()]
+            if not width.isdigit() or not height.isdigit() or int(width) <= 0 or int(height) <= 0:
+                errors.append(
+                    f"main-media-dimensions:{category_slug}/{slug}:{width}x{height}"
+                )
+            if tag_attribute(main_media_tag, "loading") != "lazy":
+                errors.append(f"main-media-loading:{category_slug}/{slug}")
+            if tag_attribute(main_media_tag, "decoding") != "async":
+                errors.append(f"main-media-decoding:{category_slug}/{slug}")
+            if len(candidates) != 3 or not any("-480.webp" in value for value in candidates) or not any("-720.webp" in value for value in candidates):
+                errors.append(f"main-media-srcset:{category_slug}/{slug}:{srcset}")
+            for candidate in candidates:
+                target = local_target(page, candidate)
+                checked_links += 1
+                if target is None or not target.is_file() or target.stat().st_size == 0:
+                    errors.append(
+                        f"main-media-srcset-resource:{category_slug}/{slug}:{candidate}"
+                    )
 
         representative_tags = REPRESENTATIVE_IMG_RE.findall(source)
         if len(representative_tags) != 1:
@@ -418,6 +547,7 @@ def audit_category(
             "assigned": len(representative_assignments),
             "unique": len(representative_counts),
         },
+        "school_claim_pages_checked": school_claim_pages_checked,
     }
     return report, records, expected_urls, representative_assignments
 
@@ -473,7 +603,7 @@ def sitemap_audit(expected_urls: set[str]) -> tuple[dict, list[str]]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="영수코칭 과목별학원 4×371 정적 페이지 감사")
+    parser = argparse.ArgumentParser(description="영수코칭 과목별학원 6×371 정적 페이지 감사")
     parser.add_argument(
         "--category",
         action="append",
@@ -483,6 +613,13 @@ def main() -> int:
     parser.add_argument("--skip-similarity", action="store_true", help="본문 유사도 계산을 생략합니다.")
     parser.add_argument("--json-out", type=Path, help="JSON 보고서를 지정 경로에도 저장합니다.")
     args = parser.parse_args()
+
+    center_rows = load_csv("센터정보 정리.csv")
+    if len(center_rows) != 371:
+        raise ValueError(f"Expected 371 center rows, got {len(center_rows)}")
+    center_by_locality = {row["근처 수업가능 동네"]: row for row in center_rows}
+    if len(center_by_locality) != 371:
+        raise ValueError("Center locality values are not unique")
 
     selected = [
         config for config in CATEGORIES
@@ -497,7 +634,7 @@ def main() -> int:
     representative_errors: list[str] = []
 
     for config in selected:
-        report, records, urls, assignments = audit_category(config)
+        report, records, urls, assignments = audit_category(config, center_by_locality)
         category_reports.append(report)
         similarity_jobs.append((config["slug"], records))
         expected_urls.update(urls)
@@ -579,10 +716,19 @@ def main() -> int:
                 similarity[category] = result
 
     sitemap_report, sitemap_errors = sitemap_audit(expected_urls)
+    similarity_errors = [
+        f"similarity-threshold:{category}:"
+        f"pairs-{result['masked_5_shingle_max_similarity']['pairs_at_or_above_0_75']}:"
+        f"duplicates-{result['exact_duplicate_articles']}"
+        for category, result in similarity.items()
+        if result["exact_duplicate_articles"]
+        or result["masked_5_shingle_max_similarity"]["pairs_at_or_above_0_75"]
+    ]
     structural_errors = (
         sum(report["errors"] for report in category_reports)
         + len(sitemap_errors)
         + len(representative_errors)
+        + len(similarity_errors)
     )
     output = {
         "site": SITE_NAME,
@@ -604,6 +750,7 @@ def main() -> int:
             "errors": representative_errors,
         },
         "similarity": {key: similarity[key] for key in sorted(similarity)},
+        "similarity_errors": similarity_errors,
     }
     rendered = json.dumps(output, ensure_ascii=False, indent=2)
     print(rendered)

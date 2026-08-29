@@ -23,6 +23,8 @@ RSS_PATHS = (
     "과목별학원/고등학생영어학원/index.html",
     "과목별학원/중학생수학학원/index.html",
     "과목별학원/중학생영어학원/index.html",
+    "과목별학원/초등학생영어학원/index.html",
+    "과목별학원/초등학생수학학원/index.html",
 )
 
 
