@@ -7,3 +7,16 @@ node_modules/
 test-results/
 playwright-report/
 __pycache__/
+tmp/
+.env*
+*.pyc
+*.log
+.git/
+.vercel/
+tools/**
+reports/**
+tmp/**
+**/*.md
+**/*.xlsx
+**/*.csv
+**/*.zip

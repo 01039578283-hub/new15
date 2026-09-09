@@ -859,6 +859,7 @@ def site_header(active: str = "subjects") -> str:
         ("guide", "/학습가이드/", "학습가이드"),
         ("contact", "/상담문의/", "상담문의"),
         ("subjects", "/과목별학원/", "과목별학원"),
+        ("branches", "/지점안내/", "지점안내"),
     ]
     nav = "".join(
         f'<a href="{href}"' + (' aria-current="page"' if key == active else "") + f'>{label}</a>'
@@ -880,7 +881,7 @@ def site_footer() -> str:
         '<footer class="site-footer"><div class="footer-inner shell">'
         '<div class="footer-brand"><strong>영수코칭</strong><span>와와학습코칭센터의 영어·수학 학습관리 방식과 지역별 센터 정보를 안내합니다.<br>실제 운영 과목·대상 학년·수업 방식은 지점별로 다를 수 있으므로 상담 시 확인하세요.</span></div>'
         '<div class="footer-links"><a href="/">홈</a><a href="/학습가이드/">학습가이드</a>'
-        '<a href="/상담문의/">상담문의</a><a href="/과목별학원/">과목별학원</a><a href="/sitemap.xml">사이트맵</a></div>'
+        '<a href="/상담문의/">상담문의</a><a href="/과목별학원/">과목별학원</a><a href="/지점안내/">지점안내</a><a href="/sitemap.xml">사이트맵</a></div>'
         '</div></footer>'
         f'<aside class="floating-actions" aria-label="빠른 상담"><a href="tel:{PHONE_LINK}">전화</a>'
         f'<a href="https://blogsms.net/{PHONE_LINK}" target="_blank" rel="noopener">문자</a>'
@@ -1451,6 +1452,11 @@ def main() -> None:
         output, headings = transform_toc(source, page_path)
         page_path.write_text(output, encoding="utf-8")
         toc_links += len(headings)
+    # Keep reviewed current branch scope when older subject pages are rebuilt.
+    # The reconciler edits only the explicitly identified 54 conditional pages.
+    if (ROOT / 'tools/data/branch-neighborhoods/pages.json').exists():
+        from reconcile_branch_legacy_scope import reconcile
+        reconcile(apply=True)
     sitemap_count = write_sitemap()
     write_rss()
     write_llms()

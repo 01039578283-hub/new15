@@ -8,3 +8,7 @@ __pycache__/
 *.pyc
 tmp/
 *.log
+
+# Local-only source workbooks, manuscripts and review notes.
+/tools/data/
+/tools/*.md

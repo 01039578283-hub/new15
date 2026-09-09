@@ -17,6 +17,7 @@ ATOM_NS = "http://www.w3.org/2005/Atom"
 IGNORED_PARTS = {".git", ".vercel", "node_modules", "reports", "tmp", "tools"}
 
 RSS_PATHS = (
+    "지점안내/index.html",
     "학습가이드/index.html",
     "과목별학원/index.html",
     "과목별학원/고등학생수학학원/index.html",

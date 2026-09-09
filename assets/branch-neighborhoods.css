@@ -1,0 +1,39 @@
+.branch-child-hero { text-align: left; padding: 36px; }
+.branch-child-hero .branch-intro { margin: 0; max-width: 800px; }
+.branch-neighborhood-page .branch-child-hero .branch-intro { font-size: 17px; line-height: 1.8; }
+.branch-child-hero .branch-actions { justify-content: flex-start; }
+.branch-child-quick { margin-top: 22px; padding-top: 15px; border-top: 1px solid #e7d7c5; font-size: 15px; }
+.branch-child-quick p { margin: 6px 0; }
+.branch-child-quick strong { margin-right: 7px; color: #173a50; }
+.branch-child-quick a { text-decoration: underline; text-underline-offset: 4px; }
+.branch-child-content { max-width: 900px; margin: 24px auto 0; }
+.branch-child-links { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.branch-child-link { display: flex; align-items: center; min-height: 48px; padding: 12px 14px; border: 1px solid #dbe1e5; border-radius: 9px; background: #fff; font-size: 15px; font-weight: 700; line-height: 1.7; }
+.branch-child-link:hover { border-color: #ad511a; color: #ad511a; }
+.branch-child-link:focus-visible { outline: 3px solid #ad511a; outline-offset: 2px; }
+.branch-child-link small { display: block; margin-top: 5px; font-size: 13px; font-weight: 400; color: #526777; }
+.branch-scope-notice { margin: 14px 0 0; padding: 12px 15px; border-left: 3px solid #ad511a; background: #fff6e9; font-size: 14px; line-height: 1.8; }
+.branch-reading-shortcuts { gap: 10px; }
+.branch-reading-shortcuts a { min-height: 46px; }
+.branch-neighborhood-page .branch-child-toc { max-width: 900px; margin: 25px auto 0; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); scroll-margin-top: 145px; }
+.branch-neighborhood-page .branch-child-toc a { justify-content: flex-start; padding: 12px 15px; line-height: 1.65; }
+.branch-child-content .branch-panel p { font-size: 16px; line-height: 1.85; overflow-wrap: break-word; }
+.branch-neighborhood-page .branch-panel h2 { font-size: 25px; line-height: 1.55; }
+.branch-child-content .branch-manuscript-paragraph + .branch-manuscript-paragraph { margin-top: 14px; }
+.branch-manuscript-unit + .branch-manuscript-unit { margin-top: 22px; }
+.branch-neighborhood-page .branch-panel { scroll-margin-top: 145px; }
+.branch-reading-example { border: 1px solid #dbe1e5; border-radius: 10px; padding: 0 16px; background: #fff; }
+.branch-reading-example summary { cursor: pointer; padding: 15px 0; font-size: 16px; font-weight: 700; line-height: 1.7; }
+.branch-reading-example summary:focus-visible { outline: 3px solid #ad511a; outline-offset: 4px; }
+.branch-reading-example[open] { padding-bottom: 10px; }
+@media(max-width:720px) {
+  .branch-child-hero { padding: 27px 21px; }
+  .branch-child-links { grid-template-columns: minmax(0,1fr); }
+  .branch-neighborhood-page h1 { font-size: 30px; }
+  .branch-neighborhood-page .branch-child-hero .branch-intro { font-size: 16px; line-height: 1.75; }
+  .branch-reading-shortcuts { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .branch-reading-shortcuts a:first-child { grid-column: 1 / -1; }
+  .branch-neighborhood-page .branch-child-toc { grid-template-columns: minmax(0,1fr); }
+  .branch-neighborhood-page .branch-panel h2 { font-size: 22px; }
+  .branch-child-content .branch-panel p { font-size: 16px; }
+}

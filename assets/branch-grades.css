@@ -1,0 +1,50 @@
+/* Reviewed grade pages only; existing center and neighborhood layouts stay intact. */
+.branch-grade-page .branch-reading-shortcuts {
+  margin: 18px 0 24px;
+}
+.branch-grade-page .branch-grade-scope-badge {
+  display: inline-block;
+  margin: 0 0 4px;
+  padding: 7px 11px;
+  border: 1px solid #dfbe91;
+  border-radius: 6px;
+  color: #704316;
+  background: #fff4e3;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.branch-grade-takeaways {
+  margin-top: 22px;
+  padding: 18px 20px;
+  border-left: 3px solid #ad511a;
+  border-radius: 0 9px 9px 0;
+  background: #fffdf9;
+  color: #263d4d;
+}
+.branch-grade-takeaways .branch-grade-takeaways-label {
+  margin: 0 0 10px;
+  color: #173a50;
+  font-weight: 800;
+  font-size: 15px;
+}
+.branch-grade-takeaways ul {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-left: 20px;
+}
+.branch-grade-takeaways li {
+  padding-left: 2px;
+  font-size: 16px;
+  line-height: 1.75;
+  overflow-wrap: break-word;
+}
+.branch-grade-page .branch-manuscript-unit + .branch-manuscript-unit {
+  margin-top: 24px;
+}
+@media (max-width: 720px) {
+  .branch-grade-page .branch-child-hero { padding: 22px 18px; }
+  .branch-grade-page .branch-reading-shortcuts { margin: 16px 0 22px; }
+  .branch-grade-page .branch-reading-shortcuts a { padding: 11px 10px; font-size: 14px; }
+  .branch-grade-takeaways { padding: 15px; }
+}
