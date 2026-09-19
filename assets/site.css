@@ -2066,17 +2066,13 @@ html.motion-ready .reveal.is-visible {
 
 .academy-main-media figcaption,
 .academy-map-card figcaption {
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
-  left: 12px;
+  position: static;
   padding: 12px 14px;
-  color: #fff;
-  background: rgba(8, 45, 73, 0.86);
-  border-radius: 9px;
+  color: var(--ink);
+  background: #fff;
+  border-top: 1px solid var(--line);
   font-size: 12px;
   font-weight: 800;
-  backdrop-filter: blur(8px);
 }
 
 .academy-content-wrap {
