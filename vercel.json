@@ -25,6 +25,6 @@
       ]
     }
   ],
-  "buildCommand": "node wawa-analytics-build.mjs wawa-16 .",
-  "outputDirectory": "."
+  "buildCommand": "node release-public-build.mjs && node wawa-analytics-build.mjs wawa-16 .public-release && node seo-descriptions.mjs --root=.public-release",
+  "outputDirectory": ".public-release"
 }

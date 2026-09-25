@@ -12,3 +12,9 @@ tmp/
 # Local-only source workbooks, manuscripts and review notes.
 /tools/data/
 /tools/*.md
+
+# Isolated public release: never commit derived output or private inputs.
+.public-release/
+node_modules/
+.env*
+tools/data/
