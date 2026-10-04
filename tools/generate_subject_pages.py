@@ -15,6 +15,8 @@ from urllib.parse import quote
 from zipfile import ZipFile
 
 from PIL import Image
+from teacher_directory_links import decorate_branch_body
+from study_resource_links import decorate_study_page
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -857,6 +859,9 @@ def site_header(active: str = "subjects") -> str:
     links = [
         ("home", "/", "홈"),
         ("guide", "/학습가이드/", "학습가이드"),
+        ("teachers", "/선생님찾기/", "선생님찾기"),
+        ("education", "/교육정보/", "교육정보"),
+        ("curriculum", "/학습커리큘럼/", "학습커리큘럼"),
         ("contact", "/상담문의/", "상담문의"),
         ("subjects", "/과목별학원/", "과목별학원"),
         ("branches", "/지점안내/", "지점안내"),
@@ -880,7 +885,7 @@ def site_footer() -> str:
     return (
         '<footer class="site-footer"><div class="footer-inner shell">'
         '<div class="footer-brand"><strong>영수코칭</strong><span>와와학습코칭센터의 영어·수학 학습관리 방식과 지역별 센터 정보를 안내합니다.<br>실제 운영 과목·대상 학년·수업 방식은 지점별로 다를 수 있으므로 상담 시 확인하세요.</span></div>'
-        '<div class="footer-links"><a href="/">홈</a><a href="/학습가이드/">학습가이드</a>'
+        '<div class="footer-links"><a href="/">홈</a><a href="/학습가이드/">학습가이드</a><a href="/선생님찾기/">선생님찾기</a><a href="/교육정보/">교육정보</a><a href="/학습커리큘럼/">학습커리큘럼</a>'
         '<a href="/상담문의/">상담문의</a><a href="/과목별학원/">과목별학원</a><a href="/지점안내/">지점안내</a><a href="/sitemap.xml">사이트맵</a></div>'
         '</div></footer>'
         f'<aside class="floating-actions" aria-label="빠른 상담"><a href="tel:{PHONE_LINK}">전화</a>'
@@ -1431,6 +1436,10 @@ def main() -> None:
                     map_file=map_file,
                     representative_image=representative_image,
                 )
+                page = decorate_branch_body(page, f"/과목별학원/{config['slug']}/{slug}/", ROOT)
+                if '<!-- teacher-directory:start -->' in page:
+                    page = page.replace('</head>', '<link rel="stylesheet" href="/assets/teachers.css?v=20261004-1">\n</head>', 1)
+                page = decorate_study_page(page, f"/과목별학원/{config['slug']}/{slug}/")
                 (target / "index.html").write_text(page, encoding="utf-8")
                 meta = compact_meta(sections["메타설명"], title, row, config)
                 meta_lengths.append(len(meta))

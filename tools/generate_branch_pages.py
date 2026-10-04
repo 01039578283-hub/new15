@@ -17,6 +17,8 @@ from urllib.parse import quote
 
 from generate_subject_pages import DOMAIN, ROOT, SHARE_IMAGE_URL, page_head, site_header, site_footer
 from branch_copy_corrections import apply_branch_copy_corrections
+from teacher_directory_links import decorate_branch_body
+from study_resource_links import decorate_study_page
 
 DATA = ROOT / 'tools' / 'data' / 'branches'
 REPORTS = ROOT / 'reports' / 'branches'
@@ -224,6 +226,7 @@ def itemlist(path, items):
 
 
 def page(title, desc, path, crumbs, body, graph, detail=False):
+    body = decorate_branch_body(body, path, ROOT)
     parts = []
     for section_id, heading in re.findall(r'<section class="branch-panel(?: [^"]+)?" id="([^"]+)"[^>]*>(?:<p[^>]*>.*?</p>)?(?:<details class="branch-space-disclosure"><summary>)?<h2(?: [^>]*)?>(.*?)</h2>', body):
         part_id = url(path) + '#' + section_id
@@ -240,10 +243,13 @@ def page(title, desc, path, crumbs, body, graph, detail=False):
                 graph.append(part)
     head = page_head(title=title, description=desc, canonical=url(path), asset_prefix='/', image_url=SHARE_IMAGE_URL, graph=graph, page_type='website')
     head = head.replace('</head>', '<link rel="stylesheet" href="/assets/branches.css">\n</head>')
+    if '<!-- teacher-directory:start -->' in body:
+        head = head.replace('</head>', '<link rel="stylesheet" href="/assets/teachers.css?v=20261004-1">\n</head>')
     # Share the exact phone / message / consultation controls used by subject pages.
     footer = site_footer()
     search_script = '<script src="/assets/branch-search.js" defer></script>' if not detail else ''
-    return '<!DOCTYPE html>\n<html lang="ko">\n' + head + '\n<body class="branch-page' + (' branch-detail-page' if detail else '') + '">\n' + site_header('branches') + '<main id="main"><div class="shell">' + breadcrumb(crumbs) + body + '</div></main>' + footer + '<script src="/assets/site.js" defer></script>' + search_script + '\n</body></html>\n'
+    html = '<!DOCTYPE html>\n<html lang="ko">\n' + head + '\n<body class="branch-page' + (' branch-detail-page' if detail else '') + '">\n' + site_header('branches') + '<main id="main"><div class="shell">' + breadcrumb(crumbs) + body + '</div></main>' + footer + '<script src="/assets/site.js" defer></script>' + search_script + '\n</body></html>\n'
+    return decorate_study_page(html, path)
 
 
 def search_controls(region='전국'):
