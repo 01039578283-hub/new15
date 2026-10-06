@@ -38,6 +38,10 @@ await Promise.all(Array.from({length:12},async()=>{
     if(fs.lstatSync(input).isSymbolicLink())throw Error('Source symlink '+name);
     const bytes=await fs.promises.readFile(input);
     if(!reviewedBytes(bytes,hash,name))throw Error('Reviewed file changed; refresh release manifest: '+name);
+    let existing;
+    try { existing=await fs.promises.readFile(dest); }
+    catch(error) { if(error.code!=='ENOENT')throw error; }
+    if(existing?.equals(bytes))continue;
     await fs.promises.mkdir(path.dirname(dest),{recursive:true});
     await fs.promises.writeFile(dest,bytes);
   }

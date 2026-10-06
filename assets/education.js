@@ -6,7 +6,9 @@
     const stage = library.querySelector('[data-stage-input]');
     const subject = library.querySelector('[data-subject-input]');
     const cards = [...library.querySelectorAll('[data-edu-card]')];
-    const buttons = [...library.querySelectorAll('[data-category]')];
+    const buttons = [...library.querySelectorAll('button[data-category]')];
+    const freshButton = library.querySelector('[data-new-only]');
+    let freshOnly = Boolean(freshButton && location.hash === '#new-articles');
     let category = '';
     const update = () => {
       const words = search.value.trim().toLocaleLowerCase('ko').split(/\s+/).filter(Boolean);
@@ -15,21 +17,31 @@
         const visible = words.every(w => card.dataset.search.toLocaleLowerCase('ko').includes(w)) &&
           (!stage.value || card.dataset.stage.split(',').includes(stage.value)) &&
           (!subject || !subject.value || card.dataset.subject === subject.value) &&
-          (!category || card.dataset.category === category);
+          (!category || card.dataset.category === category) &&
+          (!freshOnly || card.dataset.edition === '20261006');
         card.hidden = !visible;
         count += Number(visible);
       }
       library.querySelector('[data-count]').textContent = `${count}개 / 전체 ${cards.length}개`;
       library.querySelector('[data-empty]').hidden = count !== 0;
       buttons.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.category === category)));
+      if (freshButton) freshButton.setAttribute('aria-pressed', String(freshOnly));
     };
-    const reset = () => { search.value = ''; stage.value = ''; if (subject) subject.value = ''; category = ''; update(); };
+    const reset = () => { search.value = ''; stage.value = ''; if (subject) subject.value = ''; category = ''; freshOnly = false; update(); };
     library.querySelector('form').addEventListener('submit', e => { e.preventDefault(); update(); });
     search.addEventListener('input', update);
     stage.addEventListener('change', update);
     if (subject) subject.addEventListener('change', update);
     buttons.forEach(b => b.addEventListener('click', () => { category = b.dataset.category; update(); }));
+    if (freshButton) freshButton.addEventListener('click', () => { freshOnly = !freshOnly; update(); });
     library.querySelectorAll('[data-reset]').forEach(b => b.addEventListener('click', reset));
+    if (freshButton) window.addEventListener('hashchange', () => {
+      if (location.hash === '#new-articles') { freshOnly = true; update(); }
+    });
+    if (freshButton) document.querySelectorAll('a[href="#new-articles"]').forEach(link => {
+      link.addEventListener('click', () => { freshOnly = true; update(); });
+    });
+    update();
   }
   const picker = document.querySelector('[data-local-picker]');
   if (!picker) return;
