@@ -1,0 +1,18 @@
+.readable-image{display:block;cursor:zoom-in;color:inherit;overflow:visible}
+.readable-image:focus-visible{outline:3px solid #ad511a;outline-offset:4px}
+.academy-media-section .reveal,.branch-primary-media{opacity:1!important;transform:none!important}
+.academy-main-media img,.academy-map-card img,.branch-primary-media img{height:auto;object-fit:contain}
+.academy-media-section img,.branch-primary-media img{max-width:100%}
+.branch-primary-media figcaption{font-size:13px;line-height:1.7;color:#526777;padding:8px 0}
+.visit-materials,.school-materials{background:#f5f8fa;border:1px solid #dbe5ea;border-radius:12px;padding:18px 20px;margin:20px 0;font-size:15px;line-height:1.85;overflow-wrap:anywhere}
+.visit-materials h3,.school-materials h3{font-size:18px;margin:0 0 10px;color:#173a50}
+.visit-materials p,.school-materials p{margin:9px 0}
+.visit-materials a,.school-materials a{text-decoration:underline;text-underline-offset:4px}
+.school-materials ol{padding-left:22px}.school-materials li+li{margin-top:10px}
+.school-stage-guides{margin-top:20px;padding-top:18px;border-top:1px solid #dde4e8}
+.scope-updated{border-left:3px solid #ad511a;padding-left:12px}
+.home-region-routes{padding-top:22px;margin-top:24px;border-top:1px solid #dbe5ea}.home-region-routes h3{font-size:19px}.home-region-routes div{display:flex;flex-wrap:wrap;gap:9px}.home-region-routes a{display:inline-flex;padding:11px 15px;background:#fff;border:1px solid #dbe5ea;border-radius:9px;color:#173a50;min-height:44px;font-size:15px}.home-region-routes a:hover{border-color:#ad511a}
+.image-zoom-dialog{width:min(96vw,1200px);max-width:96vw;max-height:94vh;padding:0;border:0;border-radius:12px;background:#fff;color:#173a50}.image-zoom-dialog::backdrop{background:rgba(8,20,30,.8)}
+.image-zoom-toolbar{position:sticky;top:0;z-index:1;display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:#fff;padding:12px 16px;border-bottom:1px solid #dbe5ea}.image-zoom-toolbar p{margin:0;flex:1;min-width:150px;font-size:14px}.image-zoom-toolbar button,.image-zoom-toolbar a{padding:10px 14px;border:1px solid #ccd9e0;border-radius:7px;background:#fff;font-size:15px;color:#173a50;min-height:44px;cursor:pointer}.image-zoom-toolbar :focus-visible{outline:3px solid #ad511a;outline-offset:2px}
+.image-zoom-scroll{overflow:auto;max-height:calc(94vh - 130px);padding:10px;overscroll-behavior:contain}.image-zoom-scroll img{display:block;width:auto;max-width:100%;height:auto;margin:auto}.image-zoom-scroll.is-native img{max-width:none;margin:0 auto}
+@media(max-width:720px){.visit-materials,.school-materials{padding:16px}.image-zoom-dialog{width:96vw}.image-zoom-scroll{max-height:calc(94vh - 160px)}}
