@@ -1,0 +1,25 @@
+/* Only pages with a verified branch photograph load this stylesheet. */
+.branch-representative-section{box-sizing:border-box;max-width:1120px;margin:36px auto 24px;padding:24px;border:1px solid #dce5e9;border-radius:16px;background:#fff;overflow-wrap:anywhere;scroll-margin-top:110px}
+.branch-representative-section h2{margin:0 0 20px;color:#163c53;font-size:24px;line-height:1.5}
+.branch-representative-section figure{max-width:760px;margin:0 auto}
+.branch-representative-section img,.branch-gallery .branch-selected-photo{display:block;width:100%;max-width:100%;height:auto;object-fit:contain;border-radius:12px;margin-inline:auto}
+.branch-representative-section figcaption{padding:12px 2px;color:#526777;font-size:14px;line-height:1.8}
+@media(max-width:720px){.branch-representative-section{margin:28px 16px 20px;padding:20px 16px;scroll-margin-top:190px}.branch-representative-section h2{font-size:21px}}
+
+/* Keep the initial HTML aspect ratio while preventing enlargement past the published pixels. */
+.branch-selected-photo[width="267"]{max-width:267px}
+.branch-selected-photo[width="300"]{max-width:300px}
+.branch-selected-photo[width="773"]{max-width:773px}
+.branch-selected-photo[width="960"]{max-width:960px}
+.branch-selected-photo[width="1005"]{max-width:1005px}
+.branch-selected-photo[width="1024"]{max-width:1024px}
+.branch-selected-photo[width="1080"]{max-width:1080px}
+.branch-selected-photo[width="1152"]{max-width:1152px}
+.branch-selected-photo[width="1200"]{max-width:1200px}
+.branch-selected-photo[width="1280"]{max-width:1280px}
+.branch-selected-photo[width="1400"]{max-width:1400px}
+.branch-selected-photo[width="1411"]{max-width:1411px}
+.branch-selected-photo[width="1440"]{max-width:1440px}
+.branch-selected-photo[width="1496"]{max-width:1496px}
+.branch-selected-photo[width="1536"]{max-width:1536px}
+.branch-selected-photo[width="1600"]{max-width:1600px}
