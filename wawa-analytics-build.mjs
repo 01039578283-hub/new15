@@ -7,7 +7,7 @@ if(!/^wawa-\d{2}$/.test(site || '')) throw Error('A registered public site ID is
 const root=path.resolve(process.argv[3] || '.');
 const check=process.argv.includes('--check');
 const tag=`<script defer src="https://wawa-visit-collector.clean-peach-8202.chatgpt.site/tracker.js" data-site="${site}" crossorigin="anonymous" referrerpolicy="no-referrer"></script>`;
-const skip=new Set(['node_modules','tools','scripts','tmp','temp','audit','audit-output','reports','backups','backup','source','src','drizzle','test','tests']);
+const skip=new Set(['node_modules','tools','scripts','tmp','temp','audit','audit-output','reports','backups','backup','source','src','drizzle','test','tests','kakao-maps']);
 let documents=0, changed=0, present=0, skipped=0;
 const errors=[];
 const allowed=f=>!f.split(/[\\/]/).some(p=>p.startsWith('.')||skip.has(p));

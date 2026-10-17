@@ -1,0 +1,1 @@
+[{"title":"주변 지하철","className":"kd-stations","items":["수진역","신흥역"]},{"title":"주변 정류장","className":"kd-stops","items":["성일중고.성일정보고.동광중고","성일중고.성일정보고.동광중고","성호시장"]},{"title":"주변 버스","className":"kd-buses","items":[{"type":"0101","label":"간선","names":["302"]},{"type":"0106","label":"일반","names":["33","382","9"]},{"type":"0109","label":"마을","names":["8","88-1"]}]}]

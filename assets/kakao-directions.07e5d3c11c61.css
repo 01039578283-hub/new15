@@ -1,0 +1,24 @@
+.kakao-directions{box-sizing:border-box;grid-column:1/-1;width:100%;max-width:1160px;margin:24px auto;padding:clamp(18px,3vw,32px);border:1px solid #d5e3dd;border-radius:20px;background:#f5f9f6;color:#193d38;scroll-margin-top:110px;text-align:left}
+.kakao-directions h2{margin:0 0 10px;font-size:clamp(24px,3vw,30px);line-height:1.4;color:#173e37}
+.kakao-directions .kd-intro{margin:0 0 20px;font-size:16px;line-height:1.8;color:#48665e}
+.kd-map-shell{position:relative;box-sizing:border-box;width:100%;height:420px;overflow:hidden;border:1px solid #d9e3dc;border-radius:12px;background:#fff}
+.kd-map-shell iframe{display:block;width:100%;height:100%;border:0;background:#fff}
+.kd-map-status{position:absolute;inset:0;z-index:1;display:grid;place-items:center;padding:24px;text-align:center;font-size:15px;line-height:1.8;color:#536b60;background:#fff;pointer-events:none}
+.kd-map-shell[data-map-ready] .kd-map-status{display:none}
+.kd-address{display:grid;grid-template-columns:5em 1fr;gap:12px;margin:0;padding:22px 0;border-bottom:1px solid #dce5df;font-size:16px;line-height:1.8}
+.kd-address dt{font-weight:700}.kd-address dd{margin:0;overflow-wrap:anywhere}
+.kd-traffic,.kd-stations,.kd-stops,.kd-buses{margin:0;padding:0;list-style:none}
+.kd-traffic>li{padding:22px 0;border-bottom:1px solid #dce5df}.kd-traffic>li:last-child{border-bottom:0}
+.kakao-directions .kd-traffic h3{margin:0 0 12px;color:#193d38;font-size:17px;line-height:1.6}
+.kd-stations,.kd-stops{display:flex;flex-wrap:wrap;gap:10px 18px}
+.kd-stations li,.kd-stops li{display:flex;align-items:baseline;gap:7px;line-height:1.8;font-size:15px;overflow-wrap:anywhere}
+.kd-stop-number{display:inline-grid;place-items:center;flex:0 0 22px;min-width:22px;height:22px;border:1px solid #9da79b;border-radius:50%;background:#fff;color:#52604e;font-size:13px}
+.kd-buses>li{display:flex;align-items:baseline;gap:10px;margin:7px 0;font-size:15px;line-height:1.9}
+.kd-bus-type{display:inline-block;flex:0 0 auto;border-radius:4px;padding:0 7px;background:#e5edf2;color:#284b63;font-weight:700;font-size:13px}
+.kd-bus-0101,.kd-bus-0107{background:#e4edfc;color:#284d9a}.kd-bus-0102,.kd-bus-0106,.kd-bus-0109{background:#e3f1df;color:#306133}.kd-bus-0103,.kd-bus-0110{background:#fbe5df;color:#a13d31}
+.kd-bus-numbers{display:flex;flex-wrap:wrap;gap:2px 13px}.kakao-directions .kd-source{margin:18px 0 0;color:#60736a;font-size:13px;line-height:1.8}
+.kd-hub-label{display:block;font-size:16px;font-weight:700}.kd-hub-select{display:block;width:100%;max-width:650px;min-height:48px;margin:10px 0 20px;padding:10px 14px;border:1px solid #b7cbbf;border-radius:8px;background:#fff;color:#193d38;font:inherit}
+.kd-hub-status{font-size:14px;line-height:1.8}.kd-hub-link{display:inline-block;margin-top:16px;color:#225b48;font-weight:700;text-underline-offset:4px}
+@media(max-width:640px){.kakao-directions{margin:20px auto;padding:20px 12px;border-radius:16px}.kd-map-shell{height:360px}.kd-address{grid-template-columns:1fr;gap:4px}.kd-stations,.kd-stops{gap:9px 14px}.kd-buses>li{gap:8px}}
+
+.kd-map-column{min-width:0;align-self:start}.kd-map-column>.kakao-directions{padding:20px 12px}.kd-map-column>.academy-map-card{margin:0}.kd-empty{margin:18px 0;color:#526777;font-size:14px;line-height:1.8}

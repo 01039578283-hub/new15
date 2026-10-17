@@ -1,0 +1,6 @@
+html,body{box-sizing:border-box;width:100%;height:100vh;margin:0;padding:0;overflow:hidden;background:#fff;font-family:Arial,'Malgun Gothic',sans-serif}
+.root_daum_roughmap{box-sizing:border-box;width:100%!important;margin:0!important;padding:0!important;border:0!important}
+.root_daum_roughmap .wrap_map{width:100%!important;height:calc(100vh - 36px)!important}
+.root_daum_roughmap .wrap_controllers{box-sizing:border-box;height:36px!important;padding:10px 12px!important;border-top:1px solid #eee}
+.root_daum_roughmap .wrap_btn_roadview,.root_daum_roughmap .cont,.root_daum_roughmap .phone{display:none!important}
+.root_daum_roughmap a:not([href]){color:inherit!important;text-decoration:none!important;cursor:default!important}
