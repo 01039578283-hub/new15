@@ -10521,8 +10521,7 @@
     "학습커리큘럼/초등/초6/사회/index.html": "5de91aad2fdf982c78e367725b5bdf5280f0df027551f4f24754db4eaedffd77",
     "학습커리큘럼/초등/초6/수학/index.html": "86ffd6c6030036fa51a1f5c3133588e714dc3b2042b74efb2ee96c199bb3a5f5",
     "학습커리큘럼/초등/초6/영어/index.html": "7a738a7ca9806aeef42b80bd12e7a548bfe4722c35c5b58404c8f28d414735a2",
-    "학습커리큘럼/학교별확인/index.html": "2d81eba00d1c875d50edd7542ec18ec8110e2c82f40568bd77b99735ea912790",
-    "vercel.json": "56bedfd895a1dd058ee539e974a4e9b558ada54a9bc2938e617acde821c10cb7"
+    "학습커리큘럼/학교별확인/index.html": "2d81eba00d1c875d50edd7542ec18ec8110e2c82f40568bd77b99735ea912790"
   },
   "textSha256": {
     "404.html": "8bfb2cfd24d6f5d6cb1877567097db7d18b602ce808d25c9dbedc5eca54c6dfa",
@@ -20943,8 +20942,7 @@
     "assets/kakao-hubs/0a1e02d6be6e6593.json": "0a1e02d6be6e6593ce8a32f37d66519cf85571685fbaa15ef2b57f12d61926ea",
     "assets/kakao-hubs/8368af111bf42545.json": "8368af111bf42545ce37aba802ee5fd1980633dd3c25f31979bccbd2871e043f",
     "assets/kakao-hubs/97b162d50615f6d8.json": "97b162d50615f6d8ba286ab23b1e8b04f2ff62fc9333990e42e90471cc79a986",
-    "a2126856a452426d96647195d4348e25.txt": "624212865d45e3bb5c30f28e3e14ba966fcc17724ca2e1097f88e31364dfd749",
-    "vercel.json": "daa322d6494c24b78cfd51c3159996925fe2a1ee70667ee7c90bad41cfe29fa3"
+    "a2126856a452426d96647195d4348e25.txt": "624212865d45e3bb5c30f28e3e14ba966fcc17724ca2e1097f88e31364dfd749"
   },
   "updatedAt": "2026-10-17",
   "learningGuides": 40,
@@ -20965,6 +20963,5 @@
     "sourceFolder": "카카오맵_지점별_HTML_소스_2026-10-14_최종",
     "fixedMapping": "tools/kakao-directions/map-assignments.json"
   },
-  "reviewedAt": "2026-10-21",
-  "vercelConfigSha256": "c8f1e713de9c9e4ea84a3156b5d66a28a0f0a952b1461df1eb74a5450a93d095"
+  "reviewedAt": "2026-10-21"
 }
