@@ -20965,5 +20965,6 @@
     "sourceFolder": "카카오맵_지점별_HTML_소스_2026-10-14_최종",
     "fixedMapping": "tools/kakao-directions/map-assignments.json"
   },
-  "reviewedAt": "2026-10-21"
+  "reviewedAt": "2026-10-21",
+  "vercelConfigSha256": "c8f1e713de9c9e4ea84a3156b5d66a28a0f0a952b1461df1eb74a5450a93d095"
 }

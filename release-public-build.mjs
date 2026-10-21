@@ -9,8 +9,17 @@ const manifest=JSON.parse(fs.readFileSync(path.join(root,'release-public-manifes
 const files=Object.entries(manifest.files);
 const selected=new Set(files.map(([name])=>name));
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
+const stableJSON=value=>JSON.stringify(value&&typeof value==='object'
+  ?Array.isArray(value)?value.map(v=>JSON.parse(stableJSON(v))):Object.fromEntries(Object.keys(value).sort().map(k=>[k,JSON.parse(stableJSON(value[k]))]))
+  :value);
 function reviewedBytes(bytes,hash,name) {
   if(digest(bytes)===hash)return true;
+  // Vercel can reserialize configuration before running the build. Accept only
+  // identical parsed settings; changed routes/headers still fail this guard.
+  if(name==='vercel.json' && manifest.vercelConfigSha256) {
+    try { if(digest(Buffer.from(stableJSON(JSON.parse(bytes.toString('utf8')))))===manifest.vercelConfigSha256)return true; }
+    catch { return false; }
+  }
   // Git converts working-tree CRLF to LF on Linux. Accept only that reversible
   // text-file representation change; binary assets still require exact bytes.
   if(!/\.(?:html|css|js|json|xml|txt|svg|webmanifest)$/i.test(name))return false;
