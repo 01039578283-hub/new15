@@ -47,23 +47,23 @@
   "outputDirectory": ".public-release",
   "redirects": [
     {
-      "source": "/지점안내/대전/도안점/도안신도시영어학",
-      "destination": "/지점안내/대전/도안점/도안신도시영어학원/",
+      "source": "/%EC%A7%80%EC%A0%90%EC%95%88%EB%82%B4/%EB%8C%80%EC%A0%84/%EB%8F%84%EC%95%88%EC%A0%90/%EB%8F%84%EC%95%88%EC%8B%A0%EB%8F%84%EC%8B%9C%EC%98%81%EC%96%B4%ED%95%99",
+      "destination": "/%EC%A7%80%EC%A0%90%EC%95%88%EB%82%B4/%EB%8C%80%EC%A0%84/%EB%8F%84%EC%95%88%EC%A0%90/%EB%8F%84%EC%95%88%EC%8B%A0%EB%8F%84%EC%8B%9C%EC%98%81%EC%96%B4%ED%95%99%EC%9B%90/",
       "permanent": true
     },
     {
-      "source": "/지점안내/대전/도안점/도안신도시영어학/",
-      "destination": "/지점안내/대전/도안점/도안신도시영어학원/",
+      "source": "/%EC%A7%80%EC%A0%90%EC%95%88%EB%82%B4/%EB%8C%80%EC%A0%84/%EB%8F%84%EC%95%88%EC%A0%90/%EB%8F%84%EC%95%88%EC%8B%A0%EB%8F%84%EC%8B%9C%EC%98%81%EC%96%B4%ED%95%99/",
+      "destination": "/%EC%A7%80%EC%A0%90%EC%95%88%EB%82%B4/%EB%8C%80%EC%A0%84/%EB%8F%84%EC%95%88%EC%A0%90/%EB%8F%84%EC%95%88%EC%8B%A0%EB%8F%84%EC%8B%9C%EC%98%81%EC%96%B4%ED%95%99%EC%9B%90/",
       "permanent": true
     },
     {
-      "source": "/지점안내/대전/도안점/도안신도시수학학",
-      "destination": "/지점안내/대전/도안점/도안신도시수학학원/",
+      "source": "/%EC%A7%80%EC%A0%90%EC%95%88%EB%82%B4/%EB%8C%80%EC%A0%84/%EB%8F%84%EC%95%88%EC%A0%90/%EB%8F%84%EC%95%88%EC%8B%A0%EB%8F%84%EC%8B%9C%EC%88%98%ED%95%99%ED%95%99",
+      "destination": "/%EC%A7%80%EC%A0%90%EC%95%88%EB%82%B4/%EB%8C%80%EC%A0%84/%EB%8F%84%EC%95%88%EC%A0%90/%EB%8F%84%EC%95%88%EC%8B%A0%EB%8F%84%EC%8B%9C%EC%88%98%ED%95%99%ED%95%99%EC%9B%90/",
       "permanent": true
     },
     {
-      "source": "/지점안내/대전/도안점/도안신도시수학학/",
-      "destination": "/지점안내/대전/도안점/도안신도시수학학원/",
+      "source": "/%EC%A7%80%EC%A0%90%EC%95%88%EB%82%B4/%EB%8C%80%EC%A0%84/%EB%8F%84%EC%95%88%EC%A0%90/%EB%8F%84%EC%95%88%EC%8B%A0%EB%8F%84%EC%8B%9C%EC%88%98%ED%95%99%ED%95%99/",
+      "destination": "/%EC%A7%80%EC%A0%90%EC%95%88%EB%82%B4/%EB%8C%80%EC%A0%84/%EB%8F%84%EC%95%88%EC%A0%90/%EB%8F%84%EC%95%88%EC%8B%A0%EB%8F%84%EC%8B%9C%EC%88%98%ED%95%99%ED%95%99%EC%9B%90/",
       "permanent": true
     }
   ]
