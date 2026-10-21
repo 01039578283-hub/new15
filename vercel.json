@@ -44,5 +44,27 @@
     }
   ],
   "buildCommand": "node release-public-build.mjs && node wawa-analytics-build.mjs wawa-16 .public-release && node seo-descriptions.mjs --root=.public-release",
-  "outputDirectory": ".public-release"
+  "outputDirectory": ".public-release",
+  "redirects": [
+    {
+      "source": "/지점안내/대전/도안점/도안신도시영어학",
+      "destination": "/지점안내/대전/도안점/도안신도시영어학원/",
+      "permanent": true
+    },
+    {
+      "source": "/지점안내/대전/도안점/도안신도시영어학/",
+      "destination": "/지점안내/대전/도안점/도안신도시영어학원/",
+      "permanent": true
+    },
+    {
+      "source": "/지점안내/대전/도안점/도안신도시수학학",
+      "destination": "/지점안내/대전/도안점/도안신도시수학학원/",
+      "permanent": true
+    },
+    {
+      "source": "/지점안내/대전/도안점/도안신도시수학학/",
+      "destination": "/지점안내/대전/도안점/도안신도시수학학원/",
+      "permanent": true
+    }
+  ]
 }
